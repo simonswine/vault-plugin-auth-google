@@ -46,13 +46,10 @@ you use the published checksums to verify integrity.
        domain=example.com
    ```
 
-1. Login using Google credentials (NB we use the k8s helper, but you shouldn't)
-   complete it, just use it to get the code).
+1. Login using Google credentials (NB we use `open` to navigate to the Google Auth URL to get the code).
 
    ```sh
-   $ k8s-oidc-helper \
-       --client-id=<GOOGLE_CLIENT_ID> \
-       --client-secret=<GOOGLE_ClIENT_SECRET>
+   $ open $(vault read -field=url auth/google/code_url)
    $ vault write auth/google/login code=$GOOGLE_CODE
    ```
 
