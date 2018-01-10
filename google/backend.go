@@ -24,8 +24,9 @@ The Google credential provider allows you to authenticate with Google.
 You must own a registered Google application.  Configure the Google credential
 backend with Application ID and Application Secret first:
 
-  $ vault write auth/google/config applicationId=$GOOGLE_APPLICATION_ID \
-      applicationSecret=$GOOGLE_APPLICATION_SECRET \
+  $ vault write auth/google/config \
+			client_id=$GOOGLE_CLIENT_ID \
+      client_secret=$GOOGLE_CLIENT_SECRET \
       domain=example.com
 
 Then, generate a personal access token by browsing to a Google URL, which can
@@ -61,7 +62,9 @@ func newBackend() *backend {
 	}
 
 	b.Backend = &framework.Backend{
-		Help: googleBackendHelp,
+		BackendType: logical.TypeCredential,
+		AuthRenew:   b.authRenew,
+		Help:        googleBackendHelp,
 
 		PathsSpecial: &logical.Paths{
 			Unauthenticated: []string{
@@ -78,11 +81,11 @@ func newBackend() *backend {
 						Type:        framework.TypeString,
 						Description: "The domain users must be part of",
 					},
-					applicationIDConfigPropertyName: &framework.FieldSchema{
+					clientIDConfigPropertyName: &framework.FieldSchema{
 						Type:        framework.TypeString,
 						Description: "Google application ID",
 					},
-					applicationSecretConfigPropertyName: &framework.FieldSchema{
+					clientSecretConfigPropertyName: &framework.FieldSchema{
 						Type:        framework.TypeString,
 						Description: "Google application secret",
 					},
@@ -125,8 +128,6 @@ func newBackend() *backend {
 				},
 			},
 		}, b.Map.Paths()...),
-
-		AuthRenew: b.pathLoginRenew,
 	}
 
 	return b

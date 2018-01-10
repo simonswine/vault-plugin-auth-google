@@ -1,8 +1,11 @@
 package google
 
 import (
-	"os"
+	"encoding/json"
+	"net/mail"
 	"strings"
+
+	"golang.org/x/oauth2"
 )
 
 //copied from vault/util... make public?
@@ -23,20 +26,33 @@ func sliceToMap(slice []string) map[string]bool {
 	return m
 }
 
-func environmentVariable(name string) string {
-
-	return os.Getenv(name)
-}
-
-func localPartFromEmail(email string) string {
-
-	var name string
-
-	if index := strings.Index(email, "@"); index > -1 {
-		name = email[:index]
-	} else {
-		name = email
+func localPartFromEmail(email string) (string, error) {
+	address, err := mail.ParseAddress(email)
+	if err != nil {
+		return "", err
 	}
 
-	return name
+	var name string
+	if index := strings.Index(address.Address, "@"); index > -1 {
+		name = address.Address[:index]
+	} else {
+		name = address.Address
+	}
+	return name, nil
+}
+
+func encodeToken(token *oauth2.Token) (string, error) {
+	buf, err := json.Marshal(token)
+	if err != nil {
+		return "", err
+	}
+	return string(buf), err
+}
+
+func decodeToken(encoded string) (*oauth2.Token, error) {
+	var token oauth2.Token
+	if err := json.Unmarshal([]byte(encoded), &token); err != nil {
+		return nil, err
+	}
+	return &token, nil
 }

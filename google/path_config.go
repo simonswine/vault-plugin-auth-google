@@ -12,47 +12,30 @@ import (
 )
 
 const (
-	configPath                          = "config"
-	domainConfigPropertyName            = "domain"
-	applicationIDConfigPropertyName     = "applicationId"
-	applicationSecretConfigPropertyName = "applicationSecret"
-	ttlConfigPropertyName               = "ttl"
-	maxTTLConfigPropertyName            = "max_ttl"
-	configEntry                         = "config"
+	configPath                     = "config"
+	domainConfigPropertyName       = "domain"
+	clientIDConfigPropertyName     = "client_id"
+	clientSecretConfigPropertyName = "client_secret"
+	ttlConfigPropertyName          = "ttl"
+	maxTTLConfigPropertyName       = "max_ttl"
+	configEntry                    = "config"
 )
-
-func readDurationFromData(data *framework.FieldData, property string) (time.Duration, *logical.Response) {
-	ttlRaw, ok := data.GetOk(property)
-	var ttl time.Duration
-	var err error
-	var rsp *logical.Response
-	if !ok || len(ttlRaw.(string)) == 0 {
-		ttl = 0
-		rsp = nil
-	} else {
-		ttl, err = time.ParseDuration(ttlRaw.(string))
-		if err != nil {
-			rsp = logical.ErrorResponse(fmt.Sprintf("Invalid '%s':%s", property, err))
-		}
-	}
-	return ttl, rsp
-}
 
 func (b *backend) pathConfigWrite(req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
 	var (
-		domain            = data.Get(domainConfigPropertyName).(string)
-		applicationID     = data.Get(applicationIDConfigPropertyName).(string)
-		applicationSecret = data.Get(applicationSecretConfigPropertyName).(string)
-		ttl               = data.Get(ttlConfigPropertyName).(time.Duration)
-		maxTTL            = data.Get(maxTTLConfigPropertyName).(time.Duration)
+		domain       = data.Get(domainConfigPropertyName).(string)
+		clientID     = data.Get(clientIDConfigPropertyName).(string)
+		clientSecret = data.Get(clientSecretConfigPropertyName).(string)
+		ttl          = data.Get(ttlConfigPropertyName).(int)
+		maxTTL       = data.Get(maxTTLConfigPropertyName).(int)
 	)
 
 	entry, err := logical.StorageEntryJSON(configEntry, config{
-		Domain:            domain,
-		TTL:               ttl,
-		MaxTTL:            maxTTL,
-		ApplicationID:     applicationID,
-		ApplicationSecret: applicationSecret,
+		Domain:       domain,
+		TTL:          time.Duration(ttl) * time.Second,
+		MaxTTL:       time.Duration(maxTTL) * time.Second,
+		ClientID:     clientID,
+		ClientSecret: clientSecret,
 	})
 	if err != nil {
 		return nil, err
@@ -77,17 +60,17 @@ func (b *backend) config(s logical.Storage) (*config, error) {
 }
 
 type config struct {
-	Domain            string        `json:"domain"`
-	ApplicationID     string        `json:"applicationId"`
-	ApplicationSecret string        `json:"applicationSecret"`
-	TTL               time.Duration `json:"ttl"`
-	MaxTTL            time.Duration `json:"max_ttl"`
+	Domain       string        `json:"domain"`
+	ClientID     string        `json:"applicationId"`
+	ClientSecret string        `json:"applicationSecret"`
+	TTL          time.Duration `json:"ttl"`
+	MaxTTL       time.Duration `json:"max_ttl"`
 }
 
 func (c *config) oauth2Config() *oauth2.Config {
 	return &oauth2.Config{
-		ClientID:     c.ApplicationID,
-		ClientSecret: c.ApplicationSecret,
+		ClientID:     c.ClientID,
+		ClientSecret: c.ClientSecret,
 		Endpoint:     google.Endpoint,
 		RedirectURL:  "urn:ietf:wg:oauth:2.0:oob",
 		Scopes:       []string{"email"},
