@@ -42,15 +42,23 @@ you use the published checksums to verify integrity.
    ```sh
    $ vault write auth/google/config \
        client_id=<GOOGLE_CLIENT_ID> \
-       client_secret=<GOOGLE_CLIENT_SECRET> \
-       domain=example.com
+       client_secret=<GOOGLE_CLIENT_SECRET>
    ```
+
+1. Create a role for a given Google group, mapping to a set of policies:
+
+  ```sh
+  $ vault write auth/google/role/hello \
+      domain=<DOMAIN> \
+      groups=hello@<DOMAIN> \
+      policies=hello
+  ```
 
 1. Login using Google credentials (NB we use `open` to navigate to the Google Auth URL to get the code).
 
    ```sh
    $ open $(vault read -field=url auth/google/code_url)
-   $ vault write auth/google/login code=$GOOGLE_CODE
+   $ vault write auth/google/login code=$GOOGLE_CODE role=hello
    ```
 
 ## License

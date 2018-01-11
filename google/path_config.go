@@ -13,7 +13,6 @@ import (
 
 const (
 	configPath                     = "config"
-	domainConfigPropertyName       = "domain"
 	clientIDConfigPropertyName     = "client_id"
 	clientSecretConfigPropertyName = "client_secret"
 	ttlConfigPropertyName          = "ttl"
@@ -23,7 +22,6 @@ const (
 
 func (b *backend) pathConfigWrite(req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
 	var (
-		domain       = data.Get(domainConfigPropertyName).(string)
 		clientID     = data.Get(clientIDConfigPropertyName).(string)
 		clientSecret = data.Get(clientSecretConfigPropertyName).(string)
 		ttl          = data.Get(ttlConfigPropertyName).(int)
@@ -31,7 +29,6 @@ func (b *backend) pathConfigWrite(req *logical.Request, data *framework.FieldDat
 	)
 
 	entry, err := logical.StorageEntryJSON(configEntry, config{
-		Domain:       domain,
 		TTL:          time.Duration(ttl) * time.Second,
 		MaxTTL:       time.Duration(maxTTL) * time.Second,
 		ClientID:     clientID,
@@ -60,7 +57,6 @@ func (b *backend) config(s logical.Storage) (*config, error) {
 }
 
 type config struct {
-	Domain       string        `json:"domain"`
 	ClientID     string        `json:"applicationId"`
 	ClientSecret string        `json:"applicationSecret"`
 	TTL          time.Duration `json:"ttl"`
@@ -73,6 +69,9 @@ func (c *config) oauth2Config() *oauth2.Config {
 		ClientSecret: c.ClientSecret,
 		Endpoint:     google.Endpoint,
 		RedirectURL:  "urn:ietf:wg:oauth:2.0:oob",
-		Scopes:       []string{"email"},
+		Scopes: []string{
+			"https://www.googleapis.com/auth/userinfo.email",
+			"https://www.googleapis.com/auth/admin.directory.group.readonly",
+		},
 	}
 }

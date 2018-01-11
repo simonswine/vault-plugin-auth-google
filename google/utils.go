@@ -2,43 +2,39 @@ package google
 
 import (
 	"encoding/json"
-	"net/mail"
-	"strings"
+	"sort"
 
 	"golang.org/x/oauth2"
 )
 
-//copied from vault/util... make public?
-func strListContains(haystack []string, needle string) bool {
-	for _, item := range haystack {
-		if item == needle {
+func strSliceEquals(a, b []string) bool {
+	sort.Strings(a)
+	sort.Strings(b)
+	if len(a) != len(b) {
+		return false
+	}
+	for i := 0; i < len(a); i++ {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
+}
+
+func strSliceHasIntersection(a, b []string) bool {
+	sort.Strings(a)
+	sort.Strings(b)
+	for i, j := 0, 0; i < len(a) && j < len(b); {
+		if a[i] == b[j] {
 			return true
+		}
+		if a[i] < b[j] {
+			i++
+		} else {
+			j++
 		}
 	}
 	return false
-}
-
-func sliceToMap(slice []string) map[string]bool {
-	m := map[string]bool{}
-	for _, element := range slice {
-		m[element] = true
-	}
-	return m
-}
-
-func localPartFromEmail(email string) (string, error) {
-	address, err := mail.ParseAddress(email)
-	if err != nil {
-		return "", err
-	}
-
-	var name string
-	if index := strings.Index(address.Address, "@"); index > -1 {
-		name = address.Address[:index]
-	} else {
-		name = address.Address
-	}
-	return name, nil
 }
 
 func encodeToken(token *oauth2.Token) (string, error) {

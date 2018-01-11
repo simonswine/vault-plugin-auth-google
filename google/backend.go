@@ -1,6 +1,7 @@
 package google
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/hashicorp/vault/logical"
@@ -19,47 +20,12 @@ func Factory(conf *logical.BackendConfig) (logical.Backend, error) {
 const googleBackendHelp = `
 The Google credential provider allows you to authenticate with Google.
 
-	$ vault mount...
-
-You must own a registered Google application.  Configure the Google credential
-backend with Application ID and Application Secret first:
-
-  $ vault write auth/google/config \
-			client_id=$GOOGLE_CLIENT_ID \
-      client_secret=$GOOGLE_CLIENT_SECRET \
-      domain=example.com
-
-Then, generate a personal access token by browsing to a Google URL, which can
-be obtained from the following URL:
-
-  $ vault read auth/google/code_url
-
-Finally, supply this code to vault to login:
-
-  $ vault auth -method=google code=$CODE
-
-The user's google domain will be matched against the domain you configured for
-the backend, e.g. example.com (or empty string for none).
-
-Key/Value Pairs:
-
-    mount=google   The mountpoint for the Google credential provider.
-                   Defaults to "google"
-
-    code=<code>    The Google access code for authentication.
+Documentation can be found at https://github.com/grapeshot/google-auth-vault-plugin.
 `
-
-const usersToPoliciesMapPath = "users"
 
 // Backend for google
 func newBackend() *backend {
-	b := &backend{
-		Map: &framework.PolicyMap{
-			PathMap: framework.PathMap{
-				Name: usersToPoliciesMapPath,
-			},
-		},
-	}
+	b := &backend{}
 
 	b.Backend = &framework.Backend{
 		BackendType: logical.TypeCredential,
@@ -74,13 +40,9 @@ func newBackend() *backend {
 		},
 
 		Paths: append([]*framework.Path{
-			&framework.Path{
+			{
 				Pattern: configPath,
 				Fields: map[string]*framework.FieldSchema{
-					domainConfigPropertyName: &framework.FieldSchema{
-						Type:        framework.TypeString,
-						Description: "The domain users must be part of",
-					},
 					clientIDConfigPropertyName: &framework.FieldSchema{
 						Type:        framework.TypeString,
 						Description: "Google application ID",
@@ -106,28 +68,68 @@ func newBackend() *backend {
 				},
 			},
 
-			&framework.Path{
+			{
 				Pattern: loginPath,
 				Fields: map[string]*framework.FieldSchema{
 					googleAuthCodeParameterName: &framework.FieldSchema{
 						Type:        framework.TypeString,
-						Description: "Google authentication code",
+						Description: "Google authentication code. Required.",
+					},
+					roleParameterName: {
+						Type:        framework.TypeString,
+						Description: "Name of the role against which the login is being attempted. Required.",
 					},
 				},
 
 				Callbacks: map[logical.Operation]framework.OperationFunc{
-					logical.UpdateOperation: b.pathLogin,
+					logical.UpdateOperation:         b.pathLogin,
+					logical.AliasLookaheadOperation: b.pathLogin,
 				},
 			},
 
-			&framework.Path{
+			{
 				Pattern: codeURLPath,
 				Fields:  map[string]*framework.FieldSchema{},
 				Callbacks: map[logical.Operation]framework.OperationFunc{
 					logical.ReadOperation: b.pathCodeURL,
 				},
 			},
-		}, b.Map.Paths()...),
+
+			// CRUD for roles.
+			{
+				Pattern:        fmt.Sprintf("role/%s", framework.GenericNameRegex("name")),
+				Fields:         roleFieldSchema,
+				ExistenceCheck: b.pathRoleExistenceCheck,
+				Callbacks: map[logical.Operation]framework.OperationFunc{
+					logical.CreateOperation: b.pathRoleCreateUpdate,
+					logical.ReadOperation:   b.pathRoleRead,
+					logical.UpdateOperation: b.pathRoleCreateUpdate,
+					logical.DeleteOperation: b.pathRoleDelete,
+				},
+				HelpSynopsis:    pathRoleHelpSyn,
+				HelpDescription: pathRoleHelpDesc,
+			},
+
+			// Paths for listing roles
+			{
+				Pattern: "role/?",
+				Callbacks: map[logical.Operation]framework.OperationFunc{
+					logical.ListOperation: b.pathRoleList,
+				},
+
+				HelpSynopsis:    pathListRolesHelpSyn,
+				HelpDescription: pathListRolesHelpDesc,
+			},
+			{
+				Pattern: "roles/?",
+				Callbacks: map[logical.Operation]framework.OperationFunc{
+					logical.ListOperation: b.pathRoleList,
+				},
+
+				HelpSynopsis:    pathListRolesHelpSyn,
+				HelpDescription: pathListRolesHelpDesc,
+			},
+		}),
 	}
 
 	return b

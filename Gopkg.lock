@@ -178,7 +178,7 @@
 [[projects]]
   branch = "master"
   name = "google.golang.org/api"
-  packages = ["gensupport","googleapi","googleapi/internal/uritemplates","oauth2/v2"]
+  packages = ["admin/directory/v1","gensupport","googleapi","googleapi/internal/uritemplates","oauth2/v2"]
   revision = "251495678c7835dbcdc35027844ab32f2fcee7a0"
 
 [[projects]]
@@ -202,7 +202,7 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "fc19fcd98b952e05aec8eee0dcaca05980d38158d3cc772a8e40e44a0f31a721"
+  inputs-digest = "59df27acc0de92806ba6e6ad71ecc933c2f274600b507b3063e70f79742bd917"
   prune = false
   solver-name = "gps-cdcl"
   solver-version = 1
