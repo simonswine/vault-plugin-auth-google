@@ -44,6 +44,10 @@ var roleFieldSchema = map[string]*framework.FieldSchema{
 		Type:        framework.TypeCommaStringSlice,
 		Description: "Comma separate list of groups, at least one of which the user must be in to grant this role.",
 	},
+	"bound_emails": {
+		Type:        framework.TypeCommaStringSlice,
+		Description: "Comma separate list of usernames, which the user must be in to grant this role.",
+	},
 	// Token Limits
 	"ttl": {
 		Type:    framework.TypeDurationSecond,
@@ -100,12 +104,13 @@ func (b *backend) pathRoleRead(req *logical.Request, data *framework.FieldData) 
 	}
 
 	roleMap := map[string]interface{}{
-		"policies":      role.Policies,
-		"bound_domain":  role.BoundDomain,
-		"bound_groupds": role.BoundGroups,
-		"ttl":           int64(role.TTL / time.Second),
-		"max_ttl":       int64(role.MaxTTL / time.Second),
-		"period":        int64(role.Period / time.Second),
+		"policies":     role.Policies,
+		"bound_domain": role.BoundDomain,
+		"bound_groups": role.BoundGroups,
+		"bound_emails": role.BoundEmails,
+		"ttl":          int64(role.TTL / time.Second),
+		"max_ttl":      int64(role.MaxTTL / time.Second),
+		"period":       int64(role.Period / time.Second),
 	}
 
 	return &logical.Response{
@@ -194,8 +199,11 @@ type role struct {
 	// Domain for authorized entities.
 	BoundDomain string `json:"domain" structs:"domain" mapstructure:"domain"`
 
-	// BoundGroups that instances must belong to in order to login under this role.
+	// BoundGroups that users must belong to in order to login under this role.
 	BoundGroups []string `json:"bound_groups" structs:"bound_groups" mapstructure:"bound_groups"`
+
+	// BoundUsers that are allowed to use this role.
+	BoundEmails []string `json:"bound_emails" structs:"bound_emails" mapstructure:"bound_emails"`
 
 	// TTL of Vault auth leases under this role.
 	TTL time.Duration `json:"ttl" structs:"ttl" mapstructure:"ttl"`
@@ -231,6 +239,12 @@ func (role *role) updateRole(sys logical.SystemView, op logical.Operation, data 
 	boundGroupsRaw, ok := data.GetOk("bound_groups")
 	if ok {
 		role.BoundGroups = boundGroupsRaw.([]string)
+	}
+
+	// Update bound groups.
+	boundEmailsRaw, ok := data.GetOk("bound_emails")
+	if ok {
+		role.BoundEmails = boundEmailsRaw.([]string)
 	}
 
 	// Update token TTL.

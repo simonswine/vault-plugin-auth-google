@@ -144,22 +144,25 @@ func (b *backend) authenticate(config *config, token *oauth2.Token) (*goauth.Use
 		return nil, nil, err
 	}
 
-	groupsService, err := admin.New(client)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	request := groupsService.Groups.List()
-	request.UserKey(user.Email)
-	response, err := request.Do()
-	if err != nil {
-		return nil, nil, err
-	}
-
 	groups := []string{}
-	for _, group := range response.Groups {
-		groups = append(groups, group.Email)
+	if config.FetchGroups {
+		groupsService, err := admin.New(client)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		request := groupsService.Groups.List()
+		request.UserKey(user.Email)
+		response, err := request.Do()
+		if err != nil {
+			return nil, nil, err
+		}
+
+		for _, group := range response.Groups {
+			groups = append(groups, group.Email)
+		}
 	}
+
 	return user, groups, nil
 }
 
@@ -169,8 +172,11 @@ func (b *backend) authorise(storage logical.Storage, role *role, user *goauth.Us
 	}
 
 	// Is this user in one of the bound groups for this role?
-	if !strSliceHasIntersection(groups, role.BoundGroups) {
-		return nil, fmt.Errorf("user is not part of required groups")
+	isGroupMember := strSliceHasIntersection(groups, role.BoundGroups)
+	isUserMember := strSliceHasIntersection([]string{user.Email}, role.BoundEmails)
+
+	if !isGroupMember && !isUserMember {
+		return nil, fmt.Errorf("user is not allowed to use this role")
 	}
 
 	return role.Policies, nil

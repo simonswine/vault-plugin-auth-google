@@ -57,21 +57,25 @@ func (b *backend) config(s logical.Storage) (*config, error) {
 }
 
 type config struct {
-	ClientID     string        `json:"applicationId"`
-	ClientSecret string        `json:"applicationSecret"`
+	ClientID     string        `json:"client_id"`
+	ClientSecret string        `json:"client_secret"`
 	TTL          time.Duration `json:"ttl"`
 	MaxTTL       time.Duration `json:"max_ttl"`
+	FetchGroups  bool          `json:"fetch_groups"`
 }
 
 func (c *config) oauth2Config() *oauth2.Config {
-	return &oauth2.Config{
+	config := &oauth2.Config{
 		ClientID:     c.ClientID,
 		ClientSecret: c.ClientSecret,
 		Endpoint:     google.Endpoint,
 		RedirectURL:  "urn:ietf:wg:oauth:2.0:oob",
 		Scopes: []string{
 			"https://www.googleapis.com/auth/userinfo.email",
-			"https://www.googleapis.com/auth/admin.directory.group.readonly",
 		},
 	}
+	if c.FetchGroups {
+		config.Scopes = append(config.Scopes, "https://www.googleapis.com/auth/admin.directory.group.readonly")
+	}
+	return config
 }

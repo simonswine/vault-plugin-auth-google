@@ -50,7 +50,7 @@ you use the published checksums to verify integrity.
   ```sh
   $ vault write auth/google/role/hello \
       domain=<DOMAIN> \
-      groups=hello@<DOMAIN> \
+      email=tom@<DOMAIN> \
       policies=hello
   ```
 
