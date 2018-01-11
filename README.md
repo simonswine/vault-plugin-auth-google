@@ -47,12 +47,12 @@ you use the published checksums to verify integrity.
 
 1. Create a role for a given Google group, mapping to a set of policies:
 
-  ```sh
-  $ vault write auth/google/role/hello \
-      domain=<DOMAIN> \
-      email=tom@<DOMAIN> \
-      policies=hello
-  ```
+   ```sh
+   $ vault write auth/google/role/hello \
+       domain=<DOMAIN> \
+       email=tom@<DOMAIN> \
+       policies=hello
+   ```
 
 1. Login using Google credentials (NB we use `open` to navigate to the Google Auth URL to get the code).
 
