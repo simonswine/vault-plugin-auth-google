@@ -108,9 +108,9 @@ func (b *backend) pathRoleRead(req *logical.Request, data *framework.FieldData) 
 		"bound_domain": role.BoundDomain,
 		"bound_groups": role.BoundGroups,
 		"bound_emails": role.BoundEmails,
-		"ttl":          int64(role.TTL / time.Second),
-		"max_ttl":      int64(role.MaxTTL / time.Second),
-		"period":       int64(role.Period / time.Second),
+		"ttl":          string(role.TTL / time.Second),
+		"max_ttl":      string(role.MaxTTL / time.Second),
+		"period":       string(role.Period / time.Second),
 	}
 
 	return &logical.Response{
