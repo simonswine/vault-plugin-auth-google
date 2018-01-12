@@ -2,7 +2,6 @@ package google
 
 import (
 	"fmt"
-	"time"
 
 	"github.com/hashicorp/vault/logical"
 	"github.com/hashicorp/vault/logical/framework"
@@ -50,16 +49,6 @@ func newBackend() *backend {
 					clientSecretConfigPropertyName: &framework.FieldSchema{
 						Type:        framework.TypeString,
 						Description: "Google application secret",
-					},
-					ttlConfigPropertyName: &framework.FieldSchema{
-						Type:        framework.TypeDurationSecond,
-						Description: "Duration after which authentication will be expired",
-						Default:     24 * time.Hour,
-					},
-					maxTTLConfigPropertyName: &framework.FieldSchema{
-						Type:        framework.TypeDurationSecond,
-						Description: "Maximum duration after which authentication will be expired",
-						Default:     24 * time.Hour,
 					},
 				},
 

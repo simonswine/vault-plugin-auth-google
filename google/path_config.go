@@ -2,7 +2,6 @@ package google
 
 import (
 	"fmt"
-	"time"
 
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
@@ -15,8 +14,6 @@ const (
 	configPath                     = "config"
 	clientIDConfigPropertyName     = "client_id"
 	clientSecretConfigPropertyName = "client_secret"
-	ttlConfigPropertyName          = "ttl"
-	maxTTLConfigPropertyName       = "max_ttl"
 	configEntry                    = "config"
 )
 
@@ -24,13 +21,9 @@ func (b *backend) pathConfigWrite(req *logical.Request, data *framework.FieldDat
 	var (
 		clientID     = data.Get(clientIDConfigPropertyName).(string)
 		clientSecret = data.Get(clientSecretConfigPropertyName).(string)
-		ttl          = data.Get(ttlConfigPropertyName).(int)
-		maxTTL       = data.Get(maxTTLConfigPropertyName).(int)
 	)
 
 	entry, err := logical.StorageEntryJSON(configEntry, config{
-		TTL:          time.Duration(ttl) * time.Second,
-		MaxTTL:       time.Duration(maxTTL) * time.Second,
 		ClientID:     clientID,
 		ClientSecret: clientSecret,
 	})
@@ -50,8 +43,6 @@ func (b *backend) pathConfigRead(req *logical.Request, data *framework.FieldData
 	configMap := map[string]interface{}{
 		clientIDConfigPropertyName:     config.ClientID,
 		clientSecretConfigPropertyName: config.ClientSecret,
-		ttlConfigPropertyName:          int64(config.TTL / time.Second),
-		maxTTLConfigPropertyName:       int64(config.MaxTTL / time.Second),
 	}
 
 	return &logical.Response{
@@ -75,11 +66,9 @@ func (b *backend) config(s logical.Storage) (*config, error) {
 }
 
 type config struct {
-	ClientID     string        `json:"client_id"`
-	ClientSecret string        `json:"client_secret"`
-	TTL          time.Duration `json:"ttl"`
-	MaxTTL       time.Duration `json:"max_ttl"`
-	FetchGroups  bool          `json:"fetch_groups"`
+	ClientID     string `json:"client_id"`
+	ClientSecret string `json:"client_secret"`
+	FetchGroups  bool   `json:"fetch_groups"`
 }
 
 func (c *config) oauth2Config() *oauth2.Config {

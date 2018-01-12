@@ -51,7 +51,7 @@ func (b *backend) pathLogin(req *logical.Request, data *framework.FieldData) (*l
 		return logical.ErrorResponse(err.Error()), nil
 	}
 
-	ttl, _, err := b.SanitizeTTL(config.TTL, config.MaxTTL)
+	ttl, _, err := b.SanitizeTTL(role.TTL, role.MaxTTL)
 	if err != nil {
 		return nil, err
 	}
@@ -69,10 +69,10 @@ func (b *backend) pathLogin(req *logical.Request, data *framework.FieldData) (*l
 			},
 			Policies: policies,
 			Metadata: map[string]string{
-				"username": user.Id,
+				"username": user.Email,
 				"domain":   user.Hd,
 			},
-			DisplayName: user.Id,
+			DisplayName: user.Email,
 			LeaseOptions: logical.LeaseOptions{
 				TTL:       ttl,
 				Renewable: true,
@@ -124,7 +124,7 @@ func (b *backend) authRenew(req *logical.Request, d *framework.FieldData) (*logi
 		return logical.ErrorResponse(fmt.Sprintf("policies do not match. new policies: %s. old policies: %s.", policies, req.Auth.Policies)), nil
 	}
 
-	ttl, maxTTL, err := b.SanitizeTTL(config.TTL, config.MaxTTL)
+	ttl, maxTTL, err := b.SanitizeTTL(role.TTL, role.MaxTTL)
 	if err != nil {
 		return logical.ErrorResponse(err.Error()), nil
 	}

@@ -23,7 +23,7 @@ echo "Enable plugin and configure it"
 vault auth-enable -path=google -plugin-name=google-auth-vault-plugin plugin
 vault write auth/google/config "client_id=${CLIENT_ID}" "client_secret=${CLIENT_SECRET}"
 vault policy-write sys/policy/hello ./hello.hcl
-vault write auth/google/role/hello policies=hello "bound_domain=${DOMAIN}" "bound_emails=${EMAIL}"
+vault write auth/google/role/hello policies=hello "bound_domain=${DOMAIN}" "bound_emails=${EMAIL}" "ttl=168h"
 
 echo "Log the user in"
 open $(vault read -field=url auth/google/code_url)
