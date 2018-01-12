@@ -17,6 +17,9 @@ func (b *backend) pathCodeURL(req *logical.Request, data *framework.FieldData) (
 	if err != nil {
 		return nil, err
 	}
+	if config == nil {
+		return logical.ErrorResponse("missing config"), nil
+	}
 
 	authURL := config.oauth2Config().AuthCodeURL("state", oauth2.AccessTypeOffline, oauth2.ApprovalForce)
 	return &logical.Response{

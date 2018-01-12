@@ -39,6 +39,9 @@ func (b *backend) pathConfigRead(req *logical.Request, data *framework.FieldData
 	if err != nil {
 		return nil, err
 	}
+	if config == nil {
+		return nil, nil
+	}
 
 	configMap := map[string]interface{}{
 		clientIDConfigPropertyName:     config.ClientID,
@@ -55,6 +58,9 @@ func (b *backend) config(s logical.Storage) (*config, error) {
 	entry, err := s.Get(configEntry)
 	if err != nil {
 		return nil, err
+	}
+	if entry == nil {
+		return nil, nil
 	}
 
 	var result config

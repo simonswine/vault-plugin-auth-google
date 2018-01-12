@@ -34,6 +34,9 @@ func (b *backend) pathLogin(req *logical.Request, data *framework.FieldData) (*l
 	if err != nil {
 		return nil, err
 	}
+	if config == nil {
+		return logical.ErrorResponse("missing config"), nil
+	}
 
 	googleConfig := config.oauth2Config()
 	token, err := googleConfig.Exchange(oauth2.NoContext, code)
@@ -103,6 +106,9 @@ func (b *backend) authRenew(req *logical.Request, d *framework.FieldData) (*logi
 	config, err := b.config(req.Storage)
 	if err != nil {
 		return nil, err
+	}
+	if config == nil {
+		return logical.ErrorResponse("missing config"), nil
 	}
 
 	token, err := decodeToken(encodedToken)
