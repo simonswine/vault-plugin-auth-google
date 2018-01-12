@@ -65,6 +65,7 @@ func newBackend() *backend {
 
 				Callbacks: map[logical.Operation]framework.OperationFunc{
 					logical.UpdateOperation: b.pathConfigWrite,
+					logical.ReadOperation:   b.pathConfigRead,
 				},
 			},
 

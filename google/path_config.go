@@ -41,6 +41,24 @@ func (b *backend) pathConfigWrite(req *logical.Request, data *framework.FieldDat
 	return nil, req.Storage.Put(entry)
 }
 
+func (b *backend) pathConfigRead(req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
+	config, err := b.config(req.Storage)
+	if err != nil {
+		return nil, err
+	}
+
+	configMap := map[string]interface{}{
+		clientIDConfigPropertyName:     config.ClientID,
+		clientSecretConfigPropertyName: config.ClientSecret,
+		ttlConfigPropertyName:          int64(config.TTL / time.Second),
+		maxTTLConfigPropertyName:       int64(config.MaxTTL / time.Second),
+	}
+
+	return &logical.Response{
+		Data: configMap,
+	}, nil
+}
+
 // Config returns the configuration for this backend.
 func (b *backend) config(s logical.Storage) (*config, error) {
 	entry, err := s.Get(configEntry)
