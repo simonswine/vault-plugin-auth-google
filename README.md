@@ -49,8 +49,8 @@ you use the published checksums to verify integrity.
 
    ```sh
    $ vault write auth/google/role/hello \
-       domain=<DOMAIN> \
-       email=tom@<DOMAIN> \
+       bound_domain=<DOMAIN> \
+       bound_emails=tom@<DOMAIN> \
        policies=hello
    ```
 
