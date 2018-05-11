@@ -42,15 +42,27 @@ you use the published checksums to verify integrity.
    ```sh
    $ vault write auth/google/config \
        client_id=<GOOGLE_CLIENT_ID> \
-       client_secret=<GOOGLE_CLIENT_SECRET>
+       client_secret=<GOOGLE_CLIENT_SECRET> \
+       fetch_groups=true
    ```
 
-1. Create a role for a given Google group, mapping to a set of policies:
+1. Create a role for a given Google group, or set of users mapping to a set of policies:
 
+   Create a policy called hello: [vault polices](https://www.vaultproject.io/intro/getting-started/policies.html)
+
+   **Emails/Users**
    ```sh
    $ vault write auth/google/role/hello \
        bound_domain=<DOMAIN> \
-       bound_emails=tom@<DOMAIN> \
+       bound_emails=myuseremail@<DOMAIN>,otheremail@<DOMAIN> \
+       policies=hello
+   ```
+
+   **Groups**
+   ```sh
+   $ vault write auth/google/role/hello \
+       bound_domain=<DOMAIN> \
+       bound_groups=SecurityTeam,WebTeam \
        policies=hello
    ```
 
@@ -60,6 +72,25 @@ you use the published checksums to verify integrity.
    $ open $(vault read -field=url auth/google/code_url)
    $ vault write auth/google/login code=$GOOGLE_CODE role=hello
    ```
+
+## Notes
+
+* If running this inside a docker container or similar, you need to ensure the plugin has the IPC_CAP as well as vault.
+
+  e.g.
+  ```sh
+  $ sudo setcap cap_ipc_lock=+ep /etc/vault/plugins/google-auth-vault-plugin
+  ```
+
+* When building remember your target platform.
+
+  e.g. on MacOS targeting Linux:
+  ```sh
+  GOOS=linux make
+  ```
+* You may need to set [api_addr](https://www.vaultproject.io/docs/configuration/index.html#api_addr)
+
+  This can be set at the top level for a standalone setup, or in a ha_storage stanza.
 
 ## License
 
