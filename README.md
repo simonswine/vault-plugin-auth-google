@@ -59,6 +59,8 @@ you use the published checksums to verify integrity.
    ```
 
    **Groups**
+   Note: The plugin requires administrative permissions to read the groups. It does work if the user is an admin, but otherwise fails.
+   Use with caution.
    ```sh
    $ vault write auth/google/role/hello \
        bound_domain=<DOMAIN> \
