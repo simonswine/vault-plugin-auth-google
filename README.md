@@ -42,15 +42,13 @@ you use the published checksums to verify integrity.
    ```sh
    $ vault write auth/google/config \
        client_id=<GOOGLE_CLIENT_ID> \
-       client_secret=<GOOGLE_CLIENT_SECRET> \
-       fetch_groups=true
+       client_secret=<GOOGLE_CLIENT_SECRET>
    ```
 
-1. Create a role for a given Google group, or set of users mapping to a set of policies:
+1. Create a role for a given set of Google users mapping to a set of policies:
 
    Create a policy called hello: [vault polices](https://www.vaultproject.io/intro/getting-started/policies.html)
 
-   **Emails/Users**
    ```sh
    $ vault write auth/google/role/hello \
        bound_domain=<DOMAIN> \
@@ -58,9 +56,19 @@ you use the published checksums to verify integrity.
        policies=hello
    ```
 
-   **Groups**
-   Note: The plugin requires administrative permissions to read the groups. It does work if the user is an admin, but otherwise fails.
-   Use with caution.
+   The plugin can also map users to policies via Google Groups; however you need to consider how groups are retrieved and whether having administative permissions for the plugin is acceptable.
+
+   **Use with caution.**
+
+   Alternative auth method with groups enabled:
+   ```sh
+   $ vault write auth/google/config \
+       client_id=<GOOGLE_CLIENT_ID> \
+       client_secret=<GOOGLE_CLIENT_SECRET> \
+       fetch_groups=true
+   ```
+
+   Create a role for a Google group mapping to a set of policies:
    ```sh
    $ vault write auth/google/role/hello \
        bound_domain=<DOMAIN> \
