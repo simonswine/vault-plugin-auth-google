@@ -31,11 +31,11 @@ func pathCredsCreate(b *databaseBackend) *framework.Path {
 }
 
 func (b *databaseBackend) pathCredsCreateRead() framework.OperationFunc {
-	return func(req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
+	return func(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
 		name := data.Get("name").(string)
 
 		// Get the role
-		role, err := b.Role(req.Storage, name)
+		role, err := b.Role(ctx, req.Storage, name)
 		if err != nil {
 			return nil, err
 		}
@@ -43,7 +43,7 @@ func (b *databaseBackend) pathCredsCreateRead() framework.OperationFunc {
 			return logical.ErrorResponse(fmt.Sprintf("unknown role: %s", name)), nil
 		}
 
-		dbConfig, err := b.DatabaseConfig(req.Storage, role.DBName)
+		dbConfig, err := b.DatabaseConfig(ctx, req.Storage, role.DBName)
 		if err != nil {
 			return nil, err
 		}
@@ -54,27 +54,23 @@ func (b *databaseBackend) pathCredsCreateRead() framework.OperationFunc {
 			return nil, logical.ErrPermissionDenied
 		}
 
-		// Grab the read lock
-		b.RLock()
-		var unlockFunc func() = b.RUnlock
-
 		// Get the Database object
-		db, ok := b.getDBObj(role.DBName)
-		if !ok {
-			// Upgrade lock
-			b.RUnlock()
-			b.Lock()
-			unlockFunc = b.Unlock
-
-			// Create a new DB object
-			db, err = b.createDBObj(context.TODO(), req.Storage, role.DBName)
-			if err != nil {
-				unlockFunc()
-				return nil, fmt.Errorf("cound not retrieve db with name: %s, got error: %s", role.DBName, err)
-			}
+		db, err := b.GetConnection(ctx, req.Storage, role.DBName)
+		if err != nil {
+			return nil, err
 		}
 
-		expiration := time.Now().Add(role.DefaultTTL)
+		db.RLock()
+		defer db.RUnlock()
+
+		ttl, _, err := framework.CalculateTTL(b.System(), 0, role.DefaultTTL, 0, role.MaxTTL, 0, time.Time{})
+		if err != nil {
+			return nil, err
+		}
+		expiration := time.Now().Add(ttl)
+		// Adding a small buffer since the TTL will be calculated again after this call
+		// to ensure the database credential does not expire before the lease
+		expiration = expiration.Add(5 * time.Second)
 
 		usernameConfig := dbplugin.UsernameConfig{
 			DisplayName: req.DisplayName,
@@ -82,11 +78,9 @@ func (b *databaseBackend) pathCredsCreateRead() framework.OperationFunc {
 		}
 
 		// Create the user
-		username, password, err := db.CreateUser(context.TODO(), role.Statements, usernameConfig, expiration)
-		// Unlock
-		unlockFunc()
+		username, password, err := db.CreateUser(ctx, role.Statements, usernameConfig, expiration)
 		if err != nil {
-			b.closeIfShutdown(role.DBName, err)
+			b.CloseIfShutdown(db, err)
 			return nil, err
 		}
 
@@ -94,10 +88,13 @@ func (b *databaseBackend) pathCredsCreateRead() framework.OperationFunc {
 			"username": username,
 			"password": password,
 		}, map[string]interface{}{
-			"username": username,
-			"role":     name,
+			"username":              username,
+			"role":                  name,
+			"db_name":               role.DBName,
+			"revocation_statements": role.Statements.Revocation,
 		})
 		resp.Secret.TTL = role.DefaultTTL
+		resp.Secret.MaxTTL = role.MaxTTL
 		return resp, nil
 	}
 }

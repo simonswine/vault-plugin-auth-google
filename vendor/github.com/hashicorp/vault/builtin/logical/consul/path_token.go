@@ -1,10 +1,12 @@
 package consul
 
 import (
+	"context"
 	"fmt"
 	"time"
 
 	"github.com/hashicorp/consul/api"
+	"github.com/hashicorp/errwrap"
 	"github.com/hashicorp/vault/logical"
 	"github.com/hashicorp/vault/logical/framework"
 )
@@ -25,13 +27,12 @@ func pathToken(b *backend) *framework.Path {
 	}
 }
 
-func (b *backend) pathTokenRead(
-	req *logical.Request, d *framework.FieldData) (*logical.Response, error) {
+func (b *backend) pathTokenRead(ctx context.Context, req *logical.Request, d *framework.FieldData) (*logical.Response, error) {
 	role := d.Get("role").(string)
 
-	entry, err := req.Storage.Get("policy/" + role)
+	entry, err := req.Storage.Get(ctx, "policy/"+role)
 	if err != nil {
-		return nil, fmt.Errorf("error retrieving role: %s", err)
+		return nil, errwrap.Wrapf("error retrieving role: {{err}}", err)
 	}
 	if entry == nil {
 		return logical.ErrorResponse(fmt.Sprintf("role %q not found", role)), nil
@@ -47,7 +48,7 @@ func (b *backend) pathTokenRead(
 	}
 
 	// Get the consul client
-	c, userErr, intErr := client(req.Storage)
+	c, userErr, intErr := client(ctx, req.Storage)
 	if intErr != nil {
 		return nil, intErr
 	}
@@ -58,12 +59,15 @@ func (b *backend) pathTokenRead(
 	// Generate a name for the token
 	tokenName := fmt.Sprintf("Vault %s %s %d", role, req.DisplayName, time.Now().UnixNano())
 
+	writeOpts := &api.WriteOptions{}
+	writeOpts = writeOpts.WithContext(ctx)
+
 	// Create it
 	token, _, err := c.ACL().Create(&api.ACLEntry{
 		Name:  tokenName,
 		Type:  result.TokenType,
 		Rules: result.Policy,
-	}, nil)
+	}, writeOpts)
 	if err != nil {
 		return logical.ErrorResponse(err.Error()), nil
 	}

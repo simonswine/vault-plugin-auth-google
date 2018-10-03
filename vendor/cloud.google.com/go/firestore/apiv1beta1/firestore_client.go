@@ -1,10 +1,10 @@
-// Copyright 2017, Google LLC All rights reserved.
+// Copyright 2018 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-//     http://www.apache.org/licenses/LICENSE-2.0
+//     https://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"cloud.google.com/go/internal/version"
+	"github.com/golang/protobuf/proto"
 	gax "github.com/googleapis/gax-go"
 	"golang.org/x/net/context"
 	"google.golang.org/api/iterator"
@@ -101,6 +102,8 @@ func defaultCallOptions() *CallOptions {
 }
 
 // Client is a client for interacting with Google Cloud Firestore API.
+//
+// Methods, except Close, may be called concurrently. However, fields must not be modified concurrently with method calls.
 type Client struct {
 	// The connection to the service.
 	conn *grpc.ClientConn
@@ -171,53 +174,6 @@ func (c *Client) SetGoogleClientInfo(keyval ...string) {
 	c.xGoogMetadata = metadata.Pairs("x-goog-api-client", gax.XGoogHeader(kv...))
 }
 
-// DatabaseRootPath returns the path for the database root resource.
-func DatabaseRootPath(project, database string) string {
-	return "" +
-		"projects/" +
-		project +
-		"/databases/" +
-		database +
-		""
-}
-
-// DocumentRootPath returns the path for the document root resource.
-func DocumentRootPath(project, database string) string {
-	return "" +
-		"projects/" +
-		project +
-		"/databases/" +
-		database +
-		"/documents" +
-		""
-}
-
-// DocumentPathPath returns the path for the document path resource.
-func DocumentPathPath(project, database, documentPath string) string {
-	return "" +
-		"projects/" +
-		project +
-		"/databases/" +
-		database +
-		"/documents/" +
-		documentPath +
-		""
-}
-
-// AnyPathPath returns the path for the any path resource.
-func AnyPathPath(project, database, document, anyPath string) string {
-	return "" +
-		"projects/" +
-		project +
-		"/databases/" +
-		database +
-		"/documents/" +
-		document +
-		"/" +
-		anyPath +
-		""
-}
-
 // GetDocument gets a single document.
 func (c *Client) GetDocument(ctx context.Context, req *firestorepb.GetDocumentRequest, opts ...gax.CallOption) (*firestorepb.Document, error) {
 	ctx = insertMetadata(ctx, c.xGoogMetadata)
@@ -239,6 +195,7 @@ func (c *Client) ListDocuments(ctx context.Context, req *firestorepb.ListDocumen
 	ctx = insertMetadata(ctx, c.xGoogMetadata)
 	opts = append(c.CallOptions.ListDocuments[0:len(c.CallOptions.ListDocuments):len(c.CallOptions.ListDocuments)], opts...)
 	it := &DocumentIterator{}
+	req = proto.Clone(req).(*firestorepb.ListDocumentsRequest)
 	it.InternalFetch = func(pageSize int, pageToken string) ([]*firestorepb.Document, string, error) {
 		var resp *firestorepb.ListDocumentsResponse
 		req.PageToken = pageToken
@@ -266,6 +223,7 @@ func (c *Client) ListDocuments(ctx context.Context, req *firestorepb.ListDocumen
 		return nextPageToken, nil
 	}
 	it.pageInfo, it.nextFunc = iterator.NewPageInfo(fetch, it.bufLen, it.takeBuf)
+	it.pageInfo.MaxSize = int(req.PageSize)
 	return it
 }
 
@@ -429,6 +387,7 @@ func (c *Client) ListCollectionIds(ctx context.Context, req *firestorepb.ListCol
 	ctx = insertMetadata(ctx, c.xGoogMetadata)
 	opts = append(c.CallOptions.ListCollectionIds[0:len(c.CallOptions.ListCollectionIds):len(c.CallOptions.ListCollectionIds)], opts...)
 	it := &StringIterator{}
+	req = proto.Clone(req).(*firestorepb.ListCollectionIdsRequest)
 	it.InternalFetch = func(pageSize int, pageToken string) ([]string, string, error) {
 		var resp *firestorepb.ListCollectionIdsResponse
 		req.PageToken = pageToken
@@ -456,6 +415,7 @@ func (c *Client) ListCollectionIds(ctx context.Context, req *firestorepb.ListCol
 		return nextPageToken, nil
 	}
 	it.pageInfo, it.nextFunc = iterator.NewPageInfo(fetch, it.bufLen, it.takeBuf)
+	it.pageInfo.MaxSize = int(req.PageSize)
 	return it
 }
 

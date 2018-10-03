@@ -3,14 +3,188 @@ package vault
 import (
 	"testing"
 
+	credLdap "github.com/hashicorp/vault/builtin/credential/ldap"
+	credUserpass "github.com/hashicorp/vault/builtin/credential/userpass"
 	"github.com/hashicorp/vault/helper/identity"
+	"github.com/hashicorp/vault/helper/namespace"
 	"github.com/hashicorp/vault/logical"
 )
+
+func TestIdentityStore_EnsureNoDanglingGroupAlias(t *testing.T) {
+	err := AddTestCredentialBackend("userpass", credUserpass.Factory)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = AddTestCredentialBackend("ldap", credLdap.Factory)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	c, _, _ := TestCoreUnsealed(t)
+
+	ctx := namespace.RootContext(nil)
+
+	userpassMe := &MountEntry{
+		Table:       credentialTableType,
+		Path:        "userpass/",
+		Type:        "userpass",
+		Description: "userpass",
+	}
+	err = c.enableCredential(ctx, userpassMe)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	ldapMe := &MountEntry{
+		Table:       credentialTableType,
+		Path:        "ldap/",
+		Type:        "ldap",
+		Description: "ldap",
+	}
+	err = c.enableCredential(ctx, ldapMe)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Create a group
+	resp, err := c.identityStore.HandleRequest(ctx, &logical.Request{
+		Path:      "group",
+		Operation: logical.UpdateOperation,
+		Data: map[string]interface{}{
+			"type": "external",
+		},
+	})
+	if err != nil || (resp != nil && resp.IsError()) {
+		t.Fatalf("bad: resp: %#v\nerr: %v\n", resp, err)
+	}
+	groupID := resp.Data["id"].(string)
+
+	// Add an alias to the group from the userpass auth method
+	resp, err = c.identityStore.HandleRequest(ctx, &logical.Request{
+		Path:      "group-alias",
+		Operation: logical.UpdateOperation,
+		Data: map[string]interface{}{
+			"name":           "testgroupalias",
+			"mount_accessor": userpassMe.Accessor,
+			"canonical_id":   groupID,
+		},
+	})
+	if err != nil || (resp != nil && resp.IsError()) {
+		t.Fatalf("bad: resp: %#v\nerr: %v\n", resp, err)
+	}
+	userpassGroupAliasID := resp.Data["id"].(string)
+
+	// Ensure that the alias is readable
+	resp, err = c.identityStore.HandleRequest(ctx, &logical.Request{
+		Path:      "group-alias/id/" + userpassGroupAliasID,
+		Operation: logical.ReadOperation,
+	})
+	if err != nil || (resp != nil && resp.IsError()) {
+		t.Fatalf("bad: resp: %#v\nerr: %v\n", resp, err)
+	}
+	if resp == nil || resp.Data["id"].(string) != userpassGroupAliasID {
+		t.Fatalf("failed to read userpass group alias")
+	}
+
+	// Attach a different alias to the same group, overriding the previous one
+	resp, err = c.identityStore.HandleRequest(ctx, &logical.Request{
+		Path:      "group-alias",
+		Operation: logical.UpdateOperation,
+		Data: map[string]interface{}{
+			"name":           "testgroupalias",
+			"mount_accessor": ldapMe.Accessor,
+			"canonical_id":   groupID,
+		},
+	})
+	if err != nil || (resp != nil && resp.IsError()) {
+		t.Fatalf("bad: resp: %#v\nerr: %v\n", resp, err)
+	}
+	ldapGroupAliasID := resp.Data["id"].(string)
+
+	// Ensure that the new alias is readable
+	resp, err = c.identityStore.HandleRequest(ctx, &logical.Request{
+		Path:      "group-alias/id/" + ldapGroupAliasID,
+		Operation: logical.ReadOperation,
+	})
+	if err != nil || (resp != nil && resp.IsError()) {
+		t.Fatalf("bad: resp: %#v\nerr: %v\n", resp, err)
+	}
+	if resp == nil || resp.Data["id"].(string) != ldapGroupAliasID {
+		t.Fatalf("failed to read ldap group alias")
+	}
+
+	// Ensure previous alias is gone
+	resp, err = c.identityStore.HandleRequest(ctx, &logical.Request{
+		Path:      "group-alias/id/" + userpassGroupAliasID,
+		Operation: logical.ReadOperation,
+	})
+	if err != nil || (resp != nil && resp.IsError()) {
+		t.Fatalf("bad: resp: %#v\nerr: %v\n", resp, err)
+	}
+	if resp != nil {
+		t.Fatalf("expected a nil response")
+	}
+}
+
+func TestIdentityStore_GroupAliasDeletionOnGroupDeletion(t *testing.T) {
+	var resp *logical.Response
+	var err error
+
+	ctx := namespace.RootContext(nil)
+	i, accessor, _ := testIdentityStoreWithGithubAuth(ctx, t)
+
+	resp, err = i.HandleRequest(ctx, &logical.Request{
+		Path:      "group",
+		Operation: logical.UpdateOperation,
+		Data: map[string]interface{}{
+			"type": "external",
+		},
+	})
+	if err != nil || (resp != nil && resp.IsError()) {
+		t.Fatalf("bad: resp: %#v\nerr: %v\n", resp, err)
+	}
+	groupID := resp.Data["id"].(string)
+
+	resp, err = i.HandleRequest(ctx, &logical.Request{
+		Path:      "group-alias",
+		Operation: logical.UpdateOperation,
+		Data: map[string]interface{}{
+			"name":           "testgroupalias",
+			"mount_accessor": accessor,
+			"canonical_id":   groupID,
+		},
+	})
+	if err != nil || (resp != nil && resp.IsError()) {
+		t.Fatalf("bad: resp: %#v\nerr: %v\n", resp, err)
+	}
+	groupAliasID := resp.Data["id"].(string)
+
+	resp, err = i.HandleRequest(ctx, &logical.Request{
+		Path:      "group/id/" + groupID,
+		Operation: logical.DeleteOperation,
+	})
+	if err != nil || (resp != nil && resp.IsError()) {
+		t.Fatalf("bad: resp: %#v\nerr: %v", resp, err)
+	}
+
+	resp, err = i.HandleRequest(ctx, &logical.Request{
+		Path:      "group-alias/id/" + groupAliasID,
+		Operation: logical.ReadOperation,
+	})
+	if err != nil || (resp != nil && resp.IsError()) {
+		t.Fatalf("bad: resp: %#v\nerr: %v", resp, err)
+	}
+	if resp != nil {
+		t.Fatalf("expected a nil response")
+	}
+}
 
 func TestIdentityStore_GroupAliases_CRUD(t *testing.T) {
 	var resp *logical.Response
 	var err error
-	i, accessor, _ := testIdentityStoreWithGithubAuth(t)
+	ctx := namespace.RootContext(nil)
+	i, accessor, _ := testIdentityStoreWithGithubAuth(ctx, t)
 
 	groupReq := &logical.Request{
 		Path:      "group",
@@ -19,7 +193,7 @@ func TestIdentityStore_GroupAliases_CRUD(t *testing.T) {
 			"type": "external",
 		},
 	}
-	resp, err = i.HandleRequest(groupReq)
+	resp, err = i.HandleRequest(ctx, groupReq)
 	if err != nil || (resp != nil && resp.IsError()) {
 		t.Fatalf("bad: resp: %#v\nerr: %v\n", resp, err)
 	}
@@ -35,7 +209,7 @@ func TestIdentityStore_GroupAliases_CRUD(t *testing.T) {
 			"mount_type":     "ldap",
 		},
 	}
-	resp, err = i.HandleRequest(groupAliasReq)
+	resp, err = i.HandleRequest(ctx, groupAliasReq)
 	if err != nil || (resp != nil && resp.IsError()) {
 		t.Fatalf("bad: resp: %#v\nerr: %v\n", resp, err)
 	}
@@ -43,7 +217,7 @@ func TestIdentityStore_GroupAliases_CRUD(t *testing.T) {
 
 	groupAliasReq.Path = "group-alias/id/" + groupAliasID
 	groupAliasReq.Operation = logical.ReadOperation
-	resp, err = i.HandleRequest(groupAliasReq)
+	resp, err = i.HandleRequest(ctx, groupAliasReq)
 	if err != nil || (resp != nil && resp.IsError()) {
 		t.Fatalf("bad: resp: %#v\nerr: %v\n", resp, err)
 	}
@@ -52,14 +226,31 @@ func TestIdentityStore_GroupAliases_CRUD(t *testing.T) {
 		t.Fatalf("bad: group alias: %#v\n", resp.Data)
 	}
 
+	resp, err = i.HandleRequest(ctx, &logical.Request{
+		Path:      "group-alias/id/" + groupAliasID,
+		Operation: logical.UpdateOperation,
+		Data: map[string]interface{}{
+			"name":           "testupdatedgroupaliasname",
+			"mount_accessor": accessor,
+			"canonical_id":   groupID,
+			"mount_type":     "ldap",
+		},
+	})
+	if err != nil || (resp != nil && resp.IsError()) {
+		t.Fatalf("bad: err: %v; resp: %#v", err, resp)
+	}
+	if resp.Data["id"].(string) != groupAliasID {
+		t.Fatalf("bad: group alias: %#v\n", resp.Data)
+	}
+
 	groupAliasReq.Operation = logical.DeleteOperation
-	resp, err = i.HandleRequest(groupAliasReq)
+	resp, err = i.HandleRequest(ctx, groupAliasReq)
 	if err != nil || (resp != nil && resp.IsError()) {
 		t.Fatalf("bad: resp: %#v\nerr: %v\n", resp, err)
 	}
 
 	groupAliasReq.Operation = logical.ReadOperation
-	resp, err = i.HandleRequest(groupAliasReq)
+	resp, err = i.HandleRequest(ctx, groupAliasReq)
 	if err != nil || (resp != nil && resp.IsError()) {
 		t.Fatalf("bad: resp: %#v\nerr: %v\n", resp, err)
 	}
@@ -71,7 +262,8 @@ func TestIdentityStore_GroupAliases_CRUD(t *testing.T) {
 
 func TestIdentityStore_GroupAliases_MemDBIndexes(t *testing.T) {
 	var err error
-	i, accessor, _ := testIdentityStoreWithGithubAuth(t)
+	ctx := namespace.RootContext(nil)
+	i, accessor, _ := testIdentityStoreWithGithubAuth(ctx, t)
 
 	group := &identity.Group{
 		ID:   "testgroupid",
@@ -93,15 +285,17 @@ func TestIdentityStore_GroupAliases_MemDBIndexes(t *testing.T) {
 		BucketKeyHash:   i.groupPacker.BucketKeyHashByItemID("testgroupid"),
 	}
 
-	err = i.MemDBUpsertAlias(group.Alias, true)
+	txn := i.db.Txn(true)
+	defer txn.Abort()
+	err = i.MemDBUpsertAliasInTxn(txn, group.Alias, true)
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	err = i.MemDBUpsertGroup(group)
+	err = i.MemDBUpsertGroupInTxn(txn, group)
 	if err != nil {
 		t.Fatal(err)
 	}
+	txn.Commit()
 
 	alias, err := i.MemDBAliasByID("testgroupaliasid", false, true)
 	if err != nil {
@@ -132,13 +326,14 @@ func TestIdentityStore_GroupAliases_AliasOnInternalGroup(t *testing.T) {
 	var err error
 	var resp *logical.Response
 
-	i, accessor, _ := testIdentityStoreWithGithubAuth(t)
+	ctx := namespace.RootContext(nil)
+	i, accessor, _ := testIdentityStoreWithGithubAuth(ctx, t)
 
 	groupReq := &logical.Request{
 		Path:      "group",
 		Operation: logical.UpdateOperation,
 	}
-	resp, err = i.HandleRequest(groupReq)
+	resp, err = i.HandleRequest(ctx, groupReq)
 	if err != nil || (resp != nil && resp.IsError()) {
 		t.Fatalf("bad: resp: %#v; err: %v", resp, err)
 	}
@@ -153,7 +348,7 @@ func TestIdentityStore_GroupAliases_AliasOnInternalGroup(t *testing.T) {
 			"canonical_id":   groupID,
 		},
 	}
-	resp, err = i.HandleRequest(aliasReq)
+	resp, err = i.HandleRequest(ctx, aliasReq)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -1,4 +1,4 @@
-// Package dataflow provides access to the Google Dataflow API.
+// Package dataflow provides access to the Dataflow API.
 //
 // See https://cloud.google.com/dataflow
 //
@@ -476,6 +476,11 @@ type AutoscalingEvent struct {
 	// num_workers value.
 	Time string `json:"time,omitempty"`
 
+	// WorkerPool: A short and friendly name for the worker pool this event
+	// refers to,
+	// populated from the value of PoolStageRelation::user_pool_name.
+	WorkerPool string `json:"workerPool,omitempty"`
+
 	// ForceSendFields is a list of field names (e.g. "CurrentNumWorkers")
 	// to unconditionally include in API requests. By default, fields with
 	// empty values are omitted from API requests. However, any non-pointer,
@@ -534,6 +539,77 @@ type AutoscalingSettings struct {
 
 func (s *AutoscalingSettings) MarshalJSON() ([]byte, error) {
 	type NoMethod AutoscalingSettings
+	raw := NoMethod(*s)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
+}
+
+// BigQueryIODetails: Metadata for a BigQuery connector used by the job.
+type BigQueryIODetails struct {
+	// Dataset: Dataset accessed in the connection.
+	Dataset string `json:"dataset,omitempty"`
+
+	// ProjectId: Project accessed in the connection.
+	ProjectId string `json:"projectId,omitempty"`
+
+	// Query: Query used to access data in the connection.
+	Query string `json:"query,omitempty"`
+
+	// Table: Table accessed in the connection.
+	Table string `json:"table,omitempty"`
+
+	// ForceSendFields is a list of field names (e.g. "Dataset") to
+	// unconditionally include in API requests. By default, fields with
+	// empty values are omitted from API requests. However, any non-pointer,
+	// non-interface field appearing in ForceSendFields will be sent to the
+	// server regardless of whether the field is empty or not. This may be
+	// used to include empty fields in Patch requests.
+	ForceSendFields []string `json:"-"`
+
+	// NullFields is a list of field names (e.g. "Dataset") to include in
+	// API requests with the JSON null value. By default, fields with empty
+	// values are omitted from API requests. However, any field with an
+	// empty value appearing in NullFields will be sent to the server as
+	// null. It is an error if a field in this list has a non-empty value.
+	// This may be used to include null fields in Patch requests.
+	NullFields []string `json:"-"`
+}
+
+func (s *BigQueryIODetails) MarshalJSON() ([]byte, error) {
+	type NoMethod BigQueryIODetails
+	raw := NoMethod(*s)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
+}
+
+// BigTableIODetails: Metadata for a BigTable connector used by the job.
+type BigTableIODetails struct {
+	// InstanceId: InstanceId accessed in the connection.
+	InstanceId string `json:"instanceId,omitempty"`
+
+	// ProjectId: ProjectId accessed in the connection.
+	ProjectId string `json:"projectId,omitempty"`
+
+	// TableId: TableId accessed in the connection.
+	TableId string `json:"tableId,omitempty"`
+
+	// ForceSendFields is a list of field names (e.g. "InstanceId") to
+	// unconditionally include in API requests. By default, fields with
+	// empty values are omitted from API requests. However, any non-pointer,
+	// non-interface field appearing in ForceSendFields will be sent to the
+	// server regardless of whether the field is empty or not. This may be
+	// used to include empty fields in Patch requests.
+	ForceSendFields []string `json:"-"`
+
+	// NullFields is a list of field names (e.g. "InstanceId") to include in
+	// API requests with the JSON null value. By default, fields with empty
+	// values are omitted from API requests. However, any field with an
+	// empty value appearing in NullFields will be sent to the server as
+	// null. It is an error if a field in this list has a non-empty value.
+	// This may be used to include null fields in Patch requests.
+	NullFields []string `json:"-"`
+}
+
+func (s *BigTableIODetails) MarshalJSON() ([]byte, error) {
+	type NoMethod BigTableIODetails
 	raw := NoMethod(*s)
 	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
 }
@@ -767,6 +843,8 @@ type CounterMetadata struct {
 	//   "SET" - Aggregated value is a set of unique contributed values.
 	//   "DISTRIBUTION" - Aggregated value captures statistics about a
 	// distribution.
+	//   "LATEST_VALUE" - Aggregated value tracks the latest value of a
+	// variable.
 	Kind string `json:"kind,omitempty"`
 
 	// OtherUnits: A string referring to the unit type.
@@ -955,6 +1033,9 @@ type CounterUpdate struct {
 	// Integer: Integer value for Sum, Max, Min.
 	Integer *SplitInt64 `json:"integer,omitempty"`
 
+	// IntegerGauge: Gauge data
+	IntegerGauge *IntegerGauge `json:"integerGauge,omitempty"`
+
 	// IntegerList: List of integers, for Set.
 	IntegerList *IntegerList `json:"integerList,omitempty"`
 
@@ -1124,6 +1205,38 @@ type DataDiskAssignment struct {
 
 func (s *DataDiskAssignment) MarshalJSON() ([]byte, error) {
 	type NoMethod DataDiskAssignment
+	raw := NoMethod(*s)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
+}
+
+// DatastoreIODetails: Metadata for a Datastore connector used by the
+// job.
+type DatastoreIODetails struct {
+	// Namespace: Namespace used in the connection.
+	Namespace string `json:"namespace,omitempty"`
+
+	// ProjectId: ProjectId accessed in the connection.
+	ProjectId string `json:"projectId,omitempty"`
+
+	// ForceSendFields is a list of field names (e.g. "Namespace") to
+	// unconditionally include in API requests. By default, fields with
+	// empty values are omitted from API requests. However, any non-pointer,
+	// non-interface field appearing in ForceSendFields will be sent to the
+	// server regardless of whether the field is empty or not. This may be
+	// used to include empty fields in Patch requests.
+	ForceSendFields []string `json:"-"`
+
+	// NullFields is a list of field names (e.g. "Namespace") to include in
+	// API requests with the JSON null value. By default, fields with empty
+	// values are omitted from API requests. However, any field with an
+	// empty value appearing in NullFields will be sent to the server as
+	// null. It is an error if a field in this list has a non-empty value.
+	// This may be used to include null fields in Patch requests.
+	NullFields []string `json:"-"`
+}
+
+func (s *DatastoreIODetails) MarshalJSON() ([]byte, error) {
+	type NoMethod DatastoreIODetails
 	raw := NoMethod(*s)
 	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
 }
@@ -1586,16 +1699,21 @@ type ExecutionStageState struct {
 	// This state is a terminal state, may only be set by the Cloud
 	// Dataflow
 	// service, and only as a transition from `JOB_STATE_DRAINING`.
-	//   "JOB_STATE_PENDING" - 'JOB_STATE_PENDING' indicates that the job
+	//   "JOB_STATE_PENDING" - `JOB_STATE_PENDING` indicates that the job
 	// has been created but is not yet
 	// running.  Jobs that are pending may only transition to
 	// `JOB_STATE_RUNNING`,
 	// or `JOB_STATE_FAILED`.
-	//   "JOB_STATE_CANCELLING" - 'JOB_STATE_CANCELLING' indicates that the
+	//   "JOB_STATE_CANCELLING" - `JOB_STATE_CANCELLING` indicates that the
 	// job has been explicitly cancelled
 	// and is in the process of stopping.  Jobs that are cancelling may
 	// only
-	// transition to 'JOB_STATE_CANCELLED' or 'JOB_STATE_FAILED'.
+	// transition to `JOB_STATE_CANCELLED` or `JOB_STATE_FAILED`.
+	//   "JOB_STATE_QUEUED" - `JOB_STATE_QUEUED` indicates that the job has
+	// been created but is being
+	// delayed until launch. Jobs that are queued may only transition
+	// to
+	// `JOB_STATE_PENDING` or `JOB_STATE_CANCELLED`.
 	ExecutionStageState string `json:"executionStageState,omitempty"`
 
 	// ForceSendFields is a list of field names (e.g. "CurrentStateTime") to
@@ -1712,6 +1830,34 @@ type FailedLocation struct {
 
 func (s *FailedLocation) MarshalJSON() ([]byte, error) {
 	type NoMethod FailedLocation
+	raw := NoMethod(*s)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
+}
+
+// FileIODetails: Metadata for a File connector used by the job.
+type FileIODetails struct {
+	// FilePattern: File Pattern used to access files by the connector.
+	FilePattern string `json:"filePattern,omitempty"`
+
+	// ForceSendFields is a list of field names (e.g. "FilePattern") to
+	// unconditionally include in API requests. By default, fields with
+	// empty values are omitted from API requests. However, any non-pointer,
+	// non-interface field appearing in ForceSendFields will be sent to the
+	// server regardless of whether the field is empty or not. This may be
+	// used to include empty fields in Patch requests.
+	ForceSendFields []string `json:"-"`
+
+	// NullFields is a list of field names (e.g. "FilePattern") to include
+	// in API requests with the JSON null value. By default, fields with
+	// empty values are omitted from API requests. However, any field with
+	// an empty value appearing in NullFields will be sent to the server as
+	// null. It is an error if a field in this list has a non-empty value.
+	// This may be used to include null fields in Patch requests.
+	NullFields []string `json:"-"`
+}
+
+func (s *FileIODetails) MarshalJSON() ([]byte, error) {
+	type NoMethod FileIODetails
 	raw := NoMethod(*s)
 	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
 }
@@ -2068,6 +2214,39 @@ func (s *InstructionOutput) MarshalJSON() ([]byte, error) {
 	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
 }
 
+// IntegerGauge: A metric value representing temporal values of a
+// variable.
+type IntegerGauge struct {
+	// Timestamp: The time at which this value was measured. Measured as
+	// msecs from epoch.
+	Timestamp string `json:"timestamp,omitempty"`
+
+	// Value: The value of the variable represented by this gauge.
+	Value *SplitInt64 `json:"value,omitempty"`
+
+	// ForceSendFields is a list of field names (e.g. "Timestamp") to
+	// unconditionally include in API requests. By default, fields with
+	// empty values are omitted from API requests. However, any non-pointer,
+	// non-interface field appearing in ForceSendFields will be sent to the
+	// server regardless of whether the field is empty or not. This may be
+	// used to include empty fields in Patch requests.
+	ForceSendFields []string `json:"-"`
+
+	// NullFields is a list of field names (e.g. "Timestamp") to include in
+	// API requests with the JSON null value. By default, fields with empty
+	// values are omitted from API requests. However, any field with an
+	// empty value appearing in NullFields will be sent to the server as
+	// null. It is an error if a field in this list has a non-empty value.
+	// This may be used to include null fields in Patch requests.
+	NullFields []string `json:"-"`
+}
+
+func (s *IntegerGauge) MarshalJSON() ([]byte, error) {
+	type NoMethod IntegerGauge
+	raw := NoMethod(*s)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
+}
+
 // IntegerList: A metric value representing a list of integers.
 type IntegerList struct {
 	// Elements: Elements of the list.
@@ -2216,16 +2395,21 @@ type Job struct {
 	// This state is a terminal state, may only be set by the Cloud
 	// Dataflow
 	// service, and only as a transition from `JOB_STATE_DRAINING`.
-	//   "JOB_STATE_PENDING" - 'JOB_STATE_PENDING' indicates that the job
+	//   "JOB_STATE_PENDING" - `JOB_STATE_PENDING` indicates that the job
 	// has been created but is not yet
 	// running.  Jobs that are pending may only transition to
 	// `JOB_STATE_RUNNING`,
 	// or `JOB_STATE_FAILED`.
-	//   "JOB_STATE_CANCELLING" - 'JOB_STATE_CANCELLING' indicates that the
+	//   "JOB_STATE_CANCELLING" - `JOB_STATE_CANCELLING` indicates that the
 	// job has been explicitly cancelled
 	// and is in the process of stopping.  Jobs that are cancelling may
 	// only
-	// transition to 'JOB_STATE_CANCELLED' or 'JOB_STATE_FAILED'.
+	// transition to `JOB_STATE_CANCELLED` or `JOB_STATE_FAILED`.
+	//   "JOB_STATE_QUEUED" - `JOB_STATE_QUEUED` indicates that the job has
+	// been created but is being
+	// delayed until launch. Jobs that are queued may only transition
+	// to
+	// `JOB_STATE_PENDING` or `JOB_STATE_CANCELLED`.
 	CurrentState string `json:"currentState,omitempty"`
 
 	// CurrentStateTime: The timestamp associated with the current state.
@@ -2243,6 +2427,13 @@ type Job struct {
 	// is
 	// created, and is immutable for the life of the job.
 	Id string `json:"id,omitempty"`
+
+	// JobMetadata: This field is populated by the Dataflow service to
+	// support filtering jobs
+	// by the metadata values provided here. Populated for ListJobs and all
+	// GetJob
+	// views SUMMARY and higher.
+	JobMetadata *JobMetadata `json:"jobMetadata,omitempty"`
 
 	// Labels: User-defined labels for this job.
 	//
@@ -2369,16 +2560,21 @@ type Job struct {
 	// This state is a terminal state, may only be set by the Cloud
 	// Dataflow
 	// service, and only as a transition from `JOB_STATE_DRAINING`.
-	//   "JOB_STATE_PENDING" - 'JOB_STATE_PENDING' indicates that the job
+	//   "JOB_STATE_PENDING" - `JOB_STATE_PENDING` indicates that the job
 	// has been created but is not yet
 	// running.  Jobs that are pending may only transition to
 	// `JOB_STATE_RUNNING`,
 	// or `JOB_STATE_FAILED`.
-	//   "JOB_STATE_CANCELLING" - 'JOB_STATE_CANCELLING' indicates that the
+	//   "JOB_STATE_CANCELLING" - `JOB_STATE_CANCELLING` indicates that the
 	// job has been explicitly cancelled
 	// and is in the process of stopping.  Jobs that are cancelling may
 	// only
-	// transition to 'JOB_STATE_CANCELLED' or 'JOB_STATE_FAILED'.
+	// transition to `JOB_STATE_CANCELLED` or `JOB_STATE_FAILED`.
+	//   "JOB_STATE_QUEUED" - `JOB_STATE_QUEUED` indicates that the job has
+	// been created but is being
+	// delayed until launch. Jobs that are queued may only transition
+	// to
+	// `JOB_STATE_PENDING` or `JOB_STATE_CANCELLED`.
 	RequestedState string `json:"requestedState,omitempty"`
 
 	// StageStates: This field may be mutated by the Cloud Dataflow
@@ -2582,6 +2778,61 @@ type JobMessage struct {
 
 func (s *JobMessage) MarshalJSON() ([]byte, error) {
 	type NoMethod JobMessage
+	raw := NoMethod(*s)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
+}
+
+// JobMetadata: Metadata available primarily for filtering jobs. Will be
+// included in the
+// ListJob response and Job SUMMARY view+.
+type JobMetadata struct {
+	// BigTableDetails: Identification of a BigTable source used in the
+	// Dataflow job.
+	BigTableDetails []*BigTableIODetails `json:"bigTableDetails,omitempty"`
+
+	// BigqueryDetails: Identification of a BigQuery source used in the
+	// Dataflow job.
+	BigqueryDetails []*BigQueryIODetails `json:"bigqueryDetails,omitempty"`
+
+	// DatastoreDetails: Identification of a Datastore source used in the
+	// Dataflow job.
+	DatastoreDetails []*DatastoreIODetails `json:"datastoreDetails,omitempty"`
+
+	// FileDetails: Identification of a File source used in the Dataflow
+	// job.
+	FileDetails []*FileIODetails `json:"fileDetails,omitempty"`
+
+	// PubsubDetails: Identification of a PubSub source used in the Dataflow
+	// job.
+	PubsubDetails []*PubSubIODetails `json:"pubsubDetails,omitempty"`
+
+	// SdkVersion: The SDK version used to run the job.
+	SdkVersion *SdkVersion `json:"sdkVersion,omitempty"`
+
+	// SpannerDetails: Identification of a Spanner source used in the
+	// Dataflow job.
+	SpannerDetails []*SpannerIODetails `json:"spannerDetails,omitempty"`
+
+	// ForceSendFields is a list of field names (e.g. "BigTableDetails") to
+	// unconditionally include in API requests. By default, fields with
+	// empty values are omitted from API requests. However, any non-pointer,
+	// non-interface field appearing in ForceSendFields will be sent to the
+	// server regardless of whether the field is empty or not. This may be
+	// used to include empty fields in Patch requests.
+	ForceSendFields []string `json:"-"`
+
+	// NullFields is a list of field names (e.g. "BigTableDetails") to
+	// include in API requests with the JSON null value. By default, fields
+	// with empty values are omitted from API requests. However, any field
+	// with an empty value appearing in NullFields will be sent to the
+	// server as null. It is an error if a field in this list has a
+	// non-empty value. This may be used to include null fields in Patch
+	// requests.
+	NullFields []string `json:"-"`
+}
+
+func (s *JobMetadata) MarshalJSON() ([]byte, error) {
+	type NoMethod JobMetadata
 	raw := NoMethod(*s)
 	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
 }
@@ -3103,6 +3354,12 @@ type MetricUpdate struct {
 	// of numeric values.
 	Distribution interface{} `json:"distribution,omitempty"`
 
+	// Gauge: A struct value describing properties of a Gauge.
+	// Metrics of gauge type show the value of a metric across time, and
+	// is
+	// aggregated based on the newest value.
+	Gauge interface{} `json:"gauge,omitempty"`
+
 	// Internal: Worker-computed aggregate value for internal use by the
 	// Dataflow
 	// service.
@@ -3262,6 +3519,8 @@ type NameAndKind struct {
 	//   "SET" - Aggregated value is a set of unique contributed values.
 	//   "DISTRIBUTION" - Aggregated value captures statistics about a
 	// distribution.
+	//   "LATEST_VALUE" - Aggregated value tracks the latest value of a
+	// variable.
 	Kind string `json:"kind,omitempty"`
 
 	// Name: Name of the counter.
@@ -3654,6 +3913,37 @@ func (s *Position) MarshalJSON() ([]byte, error) {
 	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
 }
 
+// PubSubIODetails: Metadata for a PubSub connector used by the job.
+type PubSubIODetails struct {
+	// Subscription: Subscription used in the connection.
+	Subscription string `json:"subscription,omitempty"`
+
+	// Topic: Topic accessed in the connection.
+	Topic string `json:"topic,omitempty"`
+
+	// ForceSendFields is a list of field names (e.g. "Subscription") to
+	// unconditionally include in API requests. By default, fields with
+	// empty values are omitted from API requests. However, any non-pointer,
+	// non-interface field appearing in ForceSendFields will be sent to the
+	// server regardless of whether the field is empty or not. This may be
+	// used to include empty fields in Patch requests.
+	ForceSendFields []string `json:"-"`
+
+	// NullFields is a list of field names (e.g. "Subscription") to include
+	// in API requests with the JSON null value. By default, fields with
+	// empty values are omitted from API requests. However, any field with
+	// an empty value appearing in NullFields will be sent to the server as
+	// null. It is an error if a field in this list has a non-empty value.
+	// This may be used to include null fields in Patch requests.
+	NullFields []string `json:"-"`
+}
+
+func (s *PubSubIODetails) MarshalJSON() ([]byte, error) {
+	type NoMethod PubSubIODetails
+	raw := NoMethod(*s)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
+}
+
 // PubsubLocation: Identifies a pubsub location to use for transferring
 // data into or
 // out of a streaming Dataflow job.
@@ -3946,9 +4236,19 @@ type RuntimeEnvironment struct {
 	// available to your pipeline during execution, from 1 to 1000.
 	MaxWorkers int64 `json:"maxWorkers,omitempty"`
 
+	// Network: Network to which VMs will be assigned.  If empty or
+	// unspecified,
+	// the service will use the network "default".
+	Network string `json:"network,omitempty"`
+
 	// ServiceAccountEmail: The email address of the service account to run
 	// the job as.
 	ServiceAccountEmail string `json:"serviceAccountEmail,omitempty"`
+
+	// Subnetwork: Subnetwork to which VMs will be assigned, if desired.
+	// Expected to be of
+	// the form "regions/REGION/subnetworks/SUBNETWORK".
+	Subnetwork string `json:"subnetwork,omitempty"`
 
 	// TempLocation: The Cloud Storage path to use for temporary files.
 	// Must be a valid Cloud Storage URL, beginning with `gs://`.
@@ -3982,6 +4282,53 @@ type RuntimeEnvironment struct {
 
 func (s *RuntimeEnvironment) MarshalJSON() ([]byte, error) {
 	type NoMethod RuntimeEnvironment
+	raw := NoMethod(*s)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
+}
+
+// SdkVersion: The version of the SDK used to run the jobl
+type SdkVersion struct {
+	// SdkSupportStatus: The support status for this SDK version.
+	//
+	// Possible values:
+	//   "UNKNOWN" - Cloud Dataflow is unaware of this version.
+	//   "SUPPORTED" - This is a known version of an SDK, and is supported.
+	//   "STALE" - A newer version of the SDK family exists, and an update
+	// is recommended.
+	//   "DEPRECATED" - This version of the SDK is deprecated and will
+	// eventually be no
+	// longer supported.
+	//   "UNSUPPORTED" - Support for this SDK version has ended and it
+	// should no longer be used.
+	SdkSupportStatus string `json:"sdkSupportStatus,omitempty"`
+
+	// Version: The version of the SDK used to run the job.
+	Version string `json:"version,omitempty"`
+
+	// VersionDisplayName: A readable string describing the version of the
+	// sdk.
+	VersionDisplayName string `json:"versionDisplayName,omitempty"`
+
+	// ForceSendFields is a list of field names (e.g. "SdkSupportStatus") to
+	// unconditionally include in API requests. By default, fields with
+	// empty values are omitted from API requests. However, any non-pointer,
+	// non-interface field appearing in ForceSendFields will be sent to the
+	// server regardless of whether the field is empty or not. This may be
+	// used to include empty fields in Patch requests.
+	ForceSendFields []string `json:"-"`
+
+	// NullFields is a list of field names (e.g. "SdkSupportStatus") to
+	// include in API requests with the JSON null value. By default, fields
+	// with empty values are omitted from API requests. However, any field
+	// with an empty value appearing in NullFields will be sent to the
+	// server as null. It is an error if a field in this list has a
+	// non-empty value. This may be used to include null fields in Patch
+	// requests.
+	NullFields []string `json:"-"`
+}
+
+func (s *SdkVersion) MarshalJSON() ([]byte, error) {
+	type NoMethod SdkVersion
 	raw := NoMethod(*s)
 	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
 }
@@ -4771,6 +5118,40 @@ type SourceSplitShard struct {
 
 func (s *SourceSplitShard) MarshalJSON() ([]byte, error) {
 	type NoMethod SourceSplitShard
+	raw := NoMethod(*s)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
+}
+
+// SpannerIODetails: Metadata for a Spanner connector used by the job.
+type SpannerIODetails struct {
+	// DatabaseId: DatabaseId accessed in the connection.
+	DatabaseId string `json:"databaseId,omitempty"`
+
+	// InstanceId: InstanceId accessed in the connection.
+	InstanceId string `json:"instanceId,omitempty"`
+
+	// ProjectId: ProjectId accessed in the connection.
+	ProjectId string `json:"projectId,omitempty"`
+
+	// ForceSendFields is a list of field names (e.g. "DatabaseId") to
+	// unconditionally include in API requests. By default, fields with
+	// empty values are omitted from API requests. However, any non-pointer,
+	// non-interface field appearing in ForceSendFields will be sent to the
+	// server regardless of whether the field is empty or not. This may be
+	// used to include empty fields in Patch requests.
+	ForceSendFields []string `json:"-"`
+
+	// NullFields is a list of field names (e.g. "DatabaseId") to include in
+	// API requests with the JSON null value. By default, fields with empty
+	// values are omitted from API requests. However, any field with an
+	// empty value appearing in NullFields will be sent to the server as
+	// null. It is an error if a field in this list has a non-empty value.
+	// This may be used to include null fields in Patch requests.
+	NullFields []string `json:"-"`
+}
+
+func (s *SpannerIODetails) MarshalJSON() ([]byte, error) {
+	type NoMethod SpannerIODetails
 	raw := NoMethod(*s)
 	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
 }
@@ -6096,6 +6477,67 @@ func (s *WorkerHealthReportResponse) MarshalJSON() ([]byte, error) {
 	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
 }
 
+// WorkerLifecycleEvent: A report of an event in a worker's
+// lifecycle.
+// The proto contains one event, because the worker is expected
+// to
+// asynchronously send each message immediately after the event.
+// Due to this asynchrony, messages may arrive out of order (or
+// missing), and it
+// is up to the consumer to interpret.
+// The timestamp of the event is in the enclosing WorkerMessage proto.
+type WorkerLifecycleEvent struct {
+	// ContainerStartTime: The start time of this container. All events will
+	// report this so that
+	// events can be grouped together across container/VM restarts.
+	ContainerStartTime string `json:"containerStartTime,omitempty"`
+
+	// Event: The event being reported.
+	//
+	// Possible values:
+	//   "UNKNOWN_EVENT" - Invalid event.
+	//   "OS_START" - The time the VM started.
+	//   "CONTAINER_START" - Our container code starts running. Multiple
+	// containers could be
+	// distinguished with WorkerMessage.labels if desired.
+	//   "NETWORK_UP" - The worker has a functional external network
+	// connection.
+	//   "STAGING_FILES_DOWNLOAD_START" - Started downloading staging files.
+	//   "STAGING_FILES_DOWNLOAD_FINISH" - Finished downloading all staging
+	// files.
+	//   "SDK_INSTALL_START" - For applicable SDKs, started installation of
+	// SDK and worker packages.
+	//   "SDK_INSTALL_FINISH" - Finished installing SDK.
+	Event string `json:"event,omitempty"`
+
+	// Metadata: Other stats that can accompany an event. E.g.
+	// { "downloaded_bytes" : "123456" }
+	Metadata map[string]string `json:"metadata,omitempty"`
+
+	// ForceSendFields is a list of field names (e.g. "ContainerStartTime")
+	// to unconditionally include in API requests. By default, fields with
+	// empty values are omitted from API requests. However, any non-pointer,
+	// non-interface field appearing in ForceSendFields will be sent to the
+	// server regardless of whether the field is empty or not. This may be
+	// used to include empty fields in Patch requests.
+	ForceSendFields []string `json:"-"`
+
+	// NullFields is a list of field names (e.g. "ContainerStartTime") to
+	// include in API requests with the JSON null value. By default, fields
+	// with empty values are omitted from API requests. However, any field
+	// with an empty value appearing in NullFields will be sent to the
+	// server as null. It is an error if a field in this list has a
+	// non-empty value. This may be used to include null fields in Patch
+	// requests.
+	NullFields []string `json:"-"`
+}
+
+func (s *WorkerLifecycleEvent) MarshalJSON() ([]byte, error) {
+	type NoMethod WorkerLifecycleEvent
+	raw := NoMethod(*s)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
+}
+
 // WorkerMessage: WorkerMessage provides information to the backend
 // about a worker.
 type WorkerMessage struct {
@@ -6118,6 +6560,9 @@ type WorkerMessage struct {
 
 	// WorkerHealthReport: The health of a worker.
 	WorkerHealthReport *WorkerHealthReport `json:"workerHealthReport,omitempty"`
+
+	// WorkerLifecycleEvent: Record of worker lifecycle events.
+	WorkerLifecycleEvent *WorkerLifecycleEvent `json:"workerLifecycleEvent,omitempty"`
 
 	// WorkerMessageCode: A worker message code.
 	WorkerMessageCode *WorkerMessageCode `json:"workerMessageCode,omitempty"`
@@ -6655,6 +7100,7 @@ func (c *ProjectsWorkerMessagesCall) doRequest(alt string) (*http.Response, erro
 	}
 	reqHeaders.Set("Content-Type", "application/json")
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "v1b3/projects/{projectId}/WorkerMessages")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("POST", urls, body)
@@ -6850,6 +7296,7 @@ func (c *ProjectsJobsAggregatedCall) doRequest(alt string) (*http.Response, erro
 	}
 	var body io.Reader = nil
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "v1b3/projects/{projectId}/jobs:aggregated")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("GET", urls, body)
@@ -7070,6 +7517,7 @@ func (c *ProjectsJobsCreateCall) doRequest(alt string) (*http.Response, error) {
 	}
 	reqHeaders.Set("Content-Type", "application/json")
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "v1b3/projects/{projectId}/jobs")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("POST", urls, body)
@@ -7257,6 +7705,7 @@ func (c *ProjectsJobsGetCall) doRequest(alt string) (*http.Response, error) {
 	}
 	var body io.Reader = nil
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "v1b3/projects/{projectId}/jobs/{jobId}")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("GET", urls, body)
@@ -7439,6 +7888,7 @@ func (c *ProjectsJobsGetMetricsCall) doRequest(alt string) (*http.Response, erro
 	}
 	var body io.Reader = nil
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "v1b3/projects/{projectId}/jobs/{jobId}/metrics")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("GET", urls, body)
@@ -7650,6 +8100,7 @@ func (c *ProjectsJobsListCall) doRequest(alt string) (*http.Response, error) {
 	}
 	var body io.Reader = nil
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "v1b3/projects/{projectId}/jobs")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("GET", urls, body)
@@ -7852,6 +8303,7 @@ func (c *ProjectsJobsUpdateCall) doRequest(alt string) (*http.Response, error) {
 	}
 	reqHeaders.Set("Content-Type", "application/json")
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "v1b3/projects/{projectId}/jobs/{jobId}")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("PUT", urls, body)
@@ -8005,6 +8457,7 @@ func (c *ProjectsJobsDebugGetConfigCall) doRequest(alt string) (*http.Response, 
 	}
 	reqHeaders.Set("Content-Type", "application/json")
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "v1b3/projects/{projectId}/jobs/{jobId}/debug/getConfig")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("POST", urls, body)
@@ -8152,6 +8605,7 @@ func (c *ProjectsJobsDebugSendCaptureCall) doRequest(alt string) (*http.Response
 	}
 	reqHeaders.Set("Content-Type", "application/json")
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "v1b3/projects/{projectId}/jobs/{jobId}/debug/sendCapture")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("POST", urls, body)
@@ -8363,6 +8817,7 @@ func (c *ProjectsJobsMessagesListCall) doRequest(alt string) (*http.Response, er
 	}
 	var body io.Reader = nil
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "v1b3/projects/{projectId}/jobs/{jobId}/messages")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("GET", urls, body)
@@ -8569,6 +9024,7 @@ func (c *ProjectsJobsWorkItemsLeaseCall) doRequest(alt string) (*http.Response, 
 	}
 	reqHeaders.Set("Content-Type", "application/json")
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "v1b3/projects/{projectId}/jobs/{jobId}/workItems:lease")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("POST", urls, body)
@@ -8717,6 +9173,7 @@ func (c *ProjectsJobsWorkItemsReportStatusCall) doRequest(alt string) (*http.Res
 	}
 	reqHeaders.Set("Content-Type", "application/json")
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "v1b3/projects/{projectId}/jobs/{jobId}/workItems:reportStatus")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("POST", urls, body)
@@ -8864,6 +9321,7 @@ func (c *ProjectsLocationsWorkerMessagesCall) doRequest(alt string) (*http.Respo
 	}
 	reqHeaders.Set("Content-Type", "application/json")
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "v1b3/projects/{projectId}/locations/{location}/WorkerMessages")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("POST", urls, body)
@@ -9031,6 +9489,7 @@ func (c *ProjectsLocationsJobsCreateCall) doRequest(alt string) (*http.Response,
 	}
 	reqHeaders.Set("Content-Type", "application/json")
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "v1b3/projects/{projectId}/locations/{location}/jobs")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("POST", urls, body)
@@ -9216,6 +9675,7 @@ func (c *ProjectsLocationsJobsGetCall) doRequest(alt string) (*http.Response, er
 	}
 	var body io.Reader = nil
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "v1b3/projects/{projectId}/locations/{location}/jobs/{jobId}")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("GET", urls, body)
@@ -9396,6 +9856,7 @@ func (c *ProjectsLocationsJobsGetMetricsCall) doRequest(alt string) (*http.Respo
 	}
 	var body io.Reader = nil
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "v1b3/projects/{projectId}/locations/{location}/jobs/{jobId}/metrics")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("GET", urls, body)
@@ -9605,6 +10066,7 @@ func (c *ProjectsLocationsJobsListCall) doRequest(alt string) (*http.Response, e
 	}
 	var body io.Reader = nil
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "v1b3/projects/{projectId}/locations/{location}/jobs")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("GET", urls, body)
@@ -9805,6 +10267,7 @@ func (c *ProjectsLocationsJobsUpdateCall) doRequest(alt string) (*http.Response,
 	}
 	reqHeaders.Set("Content-Type", "application/json")
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "v1b3/projects/{projectId}/locations/{location}/jobs/{jobId}")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("PUT", urls, body)
@@ -9963,6 +10426,7 @@ func (c *ProjectsLocationsJobsDebugGetConfigCall) doRequest(alt string) (*http.R
 	}
 	reqHeaders.Set("Content-Type", "application/json")
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "v1b3/projects/{projectId}/locations/{location}/jobs/{jobId}/debug/getConfig")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("POST", urls, body)
@@ -10120,6 +10584,7 @@ func (c *ProjectsLocationsJobsDebugSendCaptureCall) doRequest(alt string) (*http
 	}
 	reqHeaders.Set("Content-Type", "application/json")
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "v1b3/projects/{projectId}/locations/{location}/jobs/{jobId}/debug/sendCapture")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("POST", urls, body)
@@ -10334,6 +10799,7 @@ func (c *ProjectsLocationsJobsMessagesListCall) doRequest(alt string) (*http.Res
 	}
 	var body io.Reader = nil
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "v1b3/projects/{projectId}/locations/{location}/jobs/{jobId}/messages")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("GET", urls, body)
@@ -10545,6 +11011,7 @@ func (c *ProjectsLocationsJobsWorkItemsLeaseCall) doRequest(alt string) (*http.R
 	}
 	reqHeaders.Set("Content-Type", "application/json")
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "v1b3/projects/{projectId}/locations/{location}/jobs/{jobId}/workItems:lease")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("POST", urls, body)
@@ -10703,6 +11170,7 @@ func (c *ProjectsLocationsJobsWorkItemsReportStatusCall) doRequest(alt string) (
 	}
 	reqHeaders.Set("Content-Type", "application/json")
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "v1b3/projects/{projectId}/locations/{location}/jobs/{jobId}/workItems:reportStatus")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("POST", urls, body)
@@ -10858,6 +11326,7 @@ func (c *ProjectsLocationsTemplatesCreateCall) doRequest(alt string) (*http.Resp
 	}
 	reqHeaders.Set("Content-Type", "application/json")
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "v1b3/projects/{projectId}/locations/{location}/templates")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("POST", urls, body)
@@ -11031,6 +11500,7 @@ func (c *ProjectsLocationsTemplatesGetCall) doRequest(alt string) (*http.Respons
 	}
 	var body io.Reader = nil
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "v1b3/projects/{projectId}/locations/{location}/templates:get")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("GET", urls, body)
@@ -11205,6 +11675,7 @@ func (c *ProjectsLocationsTemplatesLaunchCall) doRequest(alt string) (*http.Resp
 	}
 	reqHeaders.Set("Content-Type", "application/json")
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "v1b3/projects/{projectId}/locations/{location}/templates:launch")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("POST", urls, body)
@@ -11360,6 +11831,7 @@ func (c *ProjectsTemplatesCreateCall) doRequest(alt string) (*http.Response, err
 	}
 	reqHeaders.Set("Content-Type", "application/json")
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "v1b3/projects/{projectId}/templates")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("POST", urls, body)
@@ -11530,6 +12002,7 @@ func (c *ProjectsTemplatesGetCall) doRequest(alt string) (*http.Response, error)
 	}
 	var body io.Reader = nil
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "v1b3/projects/{projectId}/templates:get")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("GET", urls, body)
@@ -11706,6 +12179,7 @@ func (c *ProjectsTemplatesLaunchCall) doRequest(alt string) (*http.Response, err
 	}
 	reqHeaders.Set("Content-Type", "application/json")
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "v1b3/projects/{projectId}/templates:launch")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("POST", urls, body)

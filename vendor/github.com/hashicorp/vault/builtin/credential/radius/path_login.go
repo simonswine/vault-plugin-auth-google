@@ -46,8 +46,7 @@ func pathLogin(b *backend) *framework.Path {
 	}
 }
 
-func (b *backend) pathLoginAliasLookahead(
-	req *logical.Request, d *framework.FieldData) (*logical.Response, error) {
+func (b *backend) pathLoginAliasLookahead(ctx context.Context, req *logical.Request, d *framework.FieldData) (*logical.Response, error) {
 	username := d.Get("username").(string)
 	if username == "" {
 		return nil, fmt.Errorf("missing username")
@@ -62,8 +61,7 @@ func (b *backend) pathLoginAliasLookahead(
 	}, nil
 }
 
-func (b *backend) pathLogin(
-	req *logical.Request, d *framework.FieldData) (*logical.Response, error) {
+func (b *backend) pathLogin(ctx context.Context, req *logical.Request, d *framework.FieldData) (*logical.Response, error) {
 	username := d.Get("username").(string)
 	password := d.Get("password").(string)
 
@@ -78,7 +76,7 @@ func (b *backend) pathLogin(
 		return logical.ErrorResponse("password cannot be empty"), nil
 	}
 
-	policies, resp, err := b.RadiusLogin(req, username, password)
+	policies, resp, err := b.RadiusLogin(ctx, req, username, password)
 	// Handle an internal error
 	if err != nil {
 		return nil, err
@@ -110,8 +108,7 @@ func (b *backend) pathLogin(
 	return resp, nil
 }
 
-func (b *backend) pathLoginRenew(
-	req *logical.Request, d *framework.FieldData) (*logical.Response, error) {
+func (b *backend) pathLoginRenew(ctx context.Context, req *logical.Request, d *framework.FieldData) (*logical.Response, error) {
 	var err error
 
 	username := req.Auth.Metadata["username"]
@@ -120,21 +117,21 @@ func (b *backend) pathLoginRenew(
 	var resp *logical.Response
 	var loginPolicies []string
 
-	loginPolicies, resp, err = b.RadiusLogin(req, username, password)
+	loginPolicies, resp, err = b.RadiusLogin(ctx, req, username, password)
 	if err != nil || (resp != nil && resp.IsError()) {
 		return resp, err
 	}
 
-	if !policyutil.EquivalentPolicies(loginPolicies, req.Auth.Policies) {
+	if !policyutil.EquivalentPolicies(loginPolicies, req.Auth.TokenPolicies) {
 		return nil, fmt.Errorf("policies have changed, not renewing")
 	}
 
-	return framework.LeaseExtend(0, 0, b.System())(req, d)
+	return &logical.Response{Auth: req.Auth}, nil
 }
 
-func (b *backend) RadiusLogin(req *logical.Request, username string, password string) ([]string, *logical.Response, error) {
+func (b *backend) RadiusLogin(ctx context.Context, req *logical.Request, username string, password string) ([]string, *logical.Response, error) {
 
-	cfg, err := b.Config(req)
+	cfg, err := b.Config(ctx, req)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -154,8 +151,8 @@ func (b *backend) RadiusLogin(req *logical.Request, username string, password st
 			Timeout: time.Duration(cfg.DialTimeout) * time.Second,
 		},
 	}
-	ctx, cancelFunc := context.WithTimeout(context.Background(), time.Duration(cfg.ReadTimeout)*time.Second)
-	received, err := client.Exchange(ctx, packet, hostport)
+	clientCtx, cancelFunc := context.WithTimeout(ctx, time.Duration(cfg.ReadTimeout)*time.Second)
+	received, err := client.Exchange(clientCtx, packet, hostport)
 	cancelFunc()
 	if err != nil {
 		return nil, logical.ErrorResponse(err.Error()), nil
@@ -164,20 +161,15 @@ func (b *backend) RadiusLogin(req *logical.Request, username string, password st
 		return nil, logical.ErrorResponse("access denied by the authentication server"), nil
 	}
 
-	var policies []string
+	policies := cfg.UnregisteredUserPolicies
+
 	// Retrieve user entry from storage
-	user, err := b.user(req.Storage, username)
+	user, err := b.user(ctx, req.Storage, username)
 	if err != nil {
-		return policies, logical.ErrorResponse("could not retrieve user entry from storage"), err
+		return nil, logical.ErrorResponse("could not retrieve user entry from storage"), err
 	}
-	if user == nil {
-		// No user found, check if unregistered users are allowed (unregistered_user_policies not empty)
-		if len(policyutil.SanitizePolicies(cfg.UnregisteredUserPolicies, false)) == 0 {
-			return nil, logical.ErrorResponse("authentication succeeded but user has no associated policies"), nil
-		}
-		policies = policyutil.SanitizePolicies(cfg.UnregisteredUserPolicies, true)
-	} else {
-		policies = policyutil.SanitizePolicies(user.Policies, true)
+	if user != nil {
+		policies = user.Policies
 	}
 
 	return policies, &logical.Response{}, nil

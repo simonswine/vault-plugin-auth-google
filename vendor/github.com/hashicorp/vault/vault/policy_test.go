@@ -5,6 +5,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/hashicorp/vault/helper/namespace"
 )
 
 var rawPolicy = strings.TrimSpace(`
@@ -89,10 +91,14 @@ path "test/req" {
 	capabilities = ["create", "sudo"]
 	required_parameters = ["foo"]
 }
+path "test/mfa" {
+	capabilities = ["create", "sudo"]
+	mfa_methods = ["my_totp", "my_totp2"]
+}
 `)
 
 func TestPolicy_Parse(t *testing.T) {
-	p, err := ParseACLPolicy(rawPolicy)
+	p, err := ParseACLPolicy(namespace.RootNamespace, rawPolicy)
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
@@ -243,14 +249,35 @@ func TestPolicy_Parse(t *testing.T) {
 			},
 			Glob: false,
 		},
+		&PathRules{
+			Prefix: "test/mfa",
+			Policy: "",
+			Capabilities: []string{
+				"create",
+				"sudo",
+			},
+			MFAMethodsHCL: []string{
+				"my_totp",
+				"my_totp2",
+			},
+			Permissions: &ACLPermissions{
+				CapabilitiesBitmap: (CreateCapabilityInt | SudoCapabilityInt),
+				MFAMethods: []string{
+					"my_totp",
+					"my_totp2",
+				},
+			},
+			Glob: false,
+		},
 	}
+
 	if !reflect.DeepEqual(p.Paths, expect) {
 		t.Errorf("expected \n\n%#v\n\n to be \n\n%#v\n\n", p.Paths, expect)
 	}
 }
 
 func TestPolicy_ParseBadRoot(t *testing.T) {
-	_, err := ParseACLPolicy(strings.TrimSpace(`
+	_, err := ParseACLPolicy(namespace.RootNamespace, strings.TrimSpace(`
 name = "test"
 bad  = "foo"
 nope = "yes"
@@ -259,17 +286,17 @@ nope = "yes"
 		t.Fatalf("expected error")
 	}
 
-	if !strings.Contains(err.Error(), "invalid key 'bad' on line 2") {
+	if !strings.Contains(err.Error(), `invalid key "bad" on line 2`) {
 		t.Errorf("bad error: %q", err)
 	}
 
-	if !strings.Contains(err.Error(), "invalid key 'nope' on line 3") {
+	if !strings.Contains(err.Error(), `invalid key "nope" on line 3`) {
 		t.Errorf("bad error: %q", err)
 	}
 }
 
 func TestPolicy_ParseBadPath(t *testing.T) {
-	_, err := ParseACLPolicy(strings.TrimSpace(`
+	_, err := ParseACLPolicy(namespace.RootNamespace, strings.TrimSpace(`
 path "/" {
 	capabilities = ["read"]
 	capabilites  = ["read"]
@@ -279,13 +306,13 @@ path "/" {
 		t.Fatalf("expected error")
 	}
 
-	if !strings.Contains(err.Error(), "invalid key 'capabilites' on line 3") {
+	if !strings.Contains(err.Error(), `invalid key "capabilites" on line 3`) {
 		t.Errorf("bad error: %s", err)
 	}
 }
 
 func TestPolicy_ParseBadPolicy(t *testing.T) {
-	_, err := ParseACLPolicy(strings.TrimSpace(`
+	_, err := ParseACLPolicy(namespace.RootNamespace, strings.TrimSpace(`
 path "/" {
 	policy = "banana"
 }
@@ -294,13 +321,13 @@ path "/" {
 		t.Fatalf("expected error")
 	}
 
-	if !strings.Contains(err.Error(), `path "/": invalid policy 'banana'`) {
+	if !strings.Contains(err.Error(), `path "/": invalid policy "banana"`) {
 		t.Errorf("bad error: %s", err)
 	}
 }
 
 func TestPolicy_ParseBadWrapping(t *testing.T) {
-	_, err := ParseACLPolicy(strings.TrimSpace(`
+	_, err := ParseACLPolicy(namespace.RootNamespace, strings.TrimSpace(`
 path "/" {
 	policy = "read"
 	min_wrapping_ttl = 400
@@ -317,7 +344,7 @@ path "/" {
 }
 
 func TestPolicy_ParseBadCapabilities(t *testing.T) {
-	_, err := ParseACLPolicy(strings.TrimSpace(`
+	_, err := ParseACLPolicy(namespace.RootNamespace, strings.TrimSpace(`
 path "/" {
 	capabilities = ["read", "banana"]
 }
@@ -326,7 +353,7 @@ path "/" {
 		t.Fatalf("expected error")
 	}
 
-	if !strings.Contains(err.Error(), `path "/": invalid capability 'banana'`) {
+	if !strings.Contains(err.Error(), `path "/": invalid capability "banana"`) {
 		t.Errorf("bad error: %s", err)
 	}
 }

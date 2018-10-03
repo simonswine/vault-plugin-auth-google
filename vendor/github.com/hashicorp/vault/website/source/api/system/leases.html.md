@@ -37,7 +37,7 @@ $ curl \
     --header "X-Vault-Token: ..." \
     --request PUT \
     --data @payload.json \
-    https://vault.rocks/v1/sys/leases/lookup
+    http://127.0.0.1:8200/v1/sys/leases/lookup
 ```
 
 ### Sample Response
@@ -62,7 +62,6 @@ This endpoint returns a list of lease ids.
 | Method   | Path                         | Produces               |
 | :------- | :--------------------------- | :--------------------- |
 | `LIST`   | `/sys/leases/lookup/:prefix` | `200 application/json` |
-| `GET`   | `/sys/leases/lookup/:prefix?list=true` | `200 application/json` |
 
 
 ### Sample Request
@@ -71,7 +70,7 @@ This endpoint returns a list of lease ids.
 $ curl \
     --header "X-Vault-Token: ..." \
     --request LIST \
-    https://vault.rocks/v1/sys/leases/lookup/aws/creds/deploy/
+    http://127.0.0.1:8200/v1/sys/leases/lookup/aws/creds/deploy/
 ```
 
 ### Sample Response
@@ -120,7 +119,7 @@ $ curl \
     --header "X-Vault-Token: ..." \
     --request PUT \
     --data @payload.json \
-    https://vault.rocks/v1/sys/leases/renew
+    http://127.0.0.1:8200/v1/sys/leases/renew
 ```
 
 ### Sample Response
@@ -160,7 +159,7 @@ $ curl \
     --header "X-Vault-Token: ..." \
     --request PUT \
     --data @payload.json \
-    https://vault.rocks/v1/sys/leases/revoke
+    http://127.0.0.1:8200/v1/sys/leases/revoke
 ```
 
 ## Revoke Force
@@ -192,7 +191,7 @@ this endpoint should be tightly controlled.
 $ curl \
     --header "X-Vault-Token: ..." \
     --request PUT \
-    https://vault.rocks/v1/sys/leases/revoke-force/aws/creds
+    http://127.0.0.1:8200/v1/sys/leases/revoke-force/aws/creds
 ```
 
 ## Revoke Prefix
@@ -219,5 +218,5 @@ used to revoke very large numbers of secrets/tokens at once.
 $ curl \
     --header "X-Vault-Token: ..." \
     --request PUT \
-    https://vault.rocks/v1/sys/leases/revoke-prefix/aws/creds
+    http://127.0.0.1:8200/v1/sys/leases/revoke-prefix/aws/creds
 ```

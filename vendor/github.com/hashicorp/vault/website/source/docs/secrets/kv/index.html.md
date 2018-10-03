@@ -1,79 +1,44 @@
 ---
 layout: "docs"
-page_title: "Key/Value Secret Backend"
+page_title: "KV - Secrets Engines"
 sidebar_current: "docs-secrets-kv"
 description: |-
-  The key/value secret backend can store arbitrary secrets.
+  The KV secrets engine can store arbitrary secrets.
 ---
 
-# Key/Value Secret Backend
+# KV Secrets Engine
 
-Name: `kv`
+The `kv` secrets engine is used to store arbitrary secrets within the
+configured physical storage for Vault. This backend can be run in one of two
+modes. It can be a generic Key-Value store that stores one value for a key.
+Versioning can be enabled and a configurable number of versions for each key
+will be stored.
 
-The key/value secret backend is used to store arbitrary secrets within
-the configured physical storage for Vault. If you followed along with
-the getting started guide, you interacted with a key/value secret backend
-via the `secret/` prefix that Vault mounts by default. You can mount as many
-of these backends at different mount points as you like.
+## KV Version 1
 
-Writing to a key in the `kv` backend will replace the old value;
-sub-fields are not merged together.
+When running the `kv` secrets backend non-versioned only the most recently
+written value for a key will be preserved. The benefits of non-versioned `kv`
+is a reduced storage size for each key since no additional metadata or history
+is stored. Additionally, requests going to a backend configured this way will be
+more performant because for any given request there will be fewer storage calls
+and no locking.
 
-Key names must always be strings. If you write non-string values directly via the CLI, they will be converted into strings. However, you can preserve non-string values by writing the key/value pairs to Vault from a JSON file or using the HTTP API. 
+More information about running in this mode can be found in the [K/V Version 1
+Docs](/docs/secrets/kv/kv-v1.html)
 
-This backend honors the distinction between the `create` and `update`
-capabilities inside ACL policies.
+## KV Version 2
 
-**Note**: Path and key names are _not_ obfuscated or encrypted; only the values
-set on keys are. You should not store sensitive information as part of a
-secret's path.
+When running v2 of the `kv` backend a key can retain a configurable number of
+versions. This defaults to 10 versions. The older versions' metadata and data
+can be retrieved. Additionally, Check-and-Set operations can be used to avoid
+overwritting data unintentionally.  
 
-## Quick Start
+When a version is deleted the underlying data is not removed, rather it is
+marked as deleted. Deleted versions can be undeleted. To permanently remove a
+version's data the destroy command or API endpoint can be used. Additionally all
+versions and metadata for a key can be deleted by deleting on the metadata
+command or API endpoint. Each of these operations can be ACL'ed differently,
+restricting who has permissions to soft delete, undelete, or fully remove data.
 
-The kv backend allows for writing keys with arbitrary values. When data is
-returned, the `lease_duration` field (in the API JSON) or `refresh_interval`
-field (on the CLI) gives a hint as to how often a reader should look for a new
-value. This comes from the value of the `default_lease_ttl` set on the mount,
-or the system value.
-
-There is one piece of special data handling: if a `ttl` key is provided, it
-will be treated as normal data, but on read the backend will attempt to parse
-it as a duration (either as a string like `1h` or an integer number of seconds
-like `3600`). If successful, the backend will use this value in place of the
-normal `lease_duration`. However, the given value will also still be returned
-exactly as specified, so you are free to use that key in any way that you like
-if it fits your input data.
-
-The backend _never_ removes data on its own; the `ttl` key is merely advisory.
-
-As an example, we can write a new key "foo" to the kv backend mounted at
-"secret/" by default:
-
-```
-$ vault write secret/foo \
-    zip=zap \
-    ttl=1h
-Success! Data written to: secret/foo
-```
-
-This writes the key with the "zip" field set to "zap" and a one hour TTL.
-We can test this by doing a read:
-
-```
-$ vault read secret/foo
-Key               Value
----               -----
-refresh_interval  3600
-ttl               1h
-zip               zap
-```
-
-As expected, we get the values previously set back as well as our custom TTL
-both as specified and translated to seconds. The duration has been set to 3600
-seconds (one hour) as specified.
-
-## API
-
-The Key/Value secret backend has a full HTTP API. Please see the
-[Key/Value secret backend API](/api/secret/kv/index.html) for more
-details.
+More information about running in this mode can be found in the [K/V Version 2
+Docs](/docs/secrets/kv/kv-v2.html)

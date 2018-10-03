@@ -18,8 +18,7 @@ This endpoint lists the plugins in the catalog.
 
 | Method   | Path                         | Produces               |
 | :------- | :--------------------------- | :--------------------- |
-| `LIST`   | `/sys/plugins/catalog`      | `200 application/json` |
-| `GET`   | `/sys/plugins/catalog?list=true`      | `200 application/json` |
+| `LIST`   | `/sys/plugins/catalog`      | `200 application/json`  |
 
 ### Sample Request
 
@@ -27,7 +26,7 @@ This endpoint lists the plugins in the catalog.
 $ curl \
     --header "X-Vault-Token: ..." \
     --request LIST
-    https://vault.rocks/v1/sys/plugins/catalog
+    http://127.0.0.1:8200/v1/sys/plugins/catalog
 ```
 
 ### Sample Response
@@ -68,8 +67,15 @@ supplied name.
   they do not match the plugin can not be run.
 
 - `command` `(string: <required>)` – Specifies the command used to execute the
-  plugin. This is relative to the plugin directory. e.g. `"myplugin
-  --my_flag=1"`
+  plugin. This is relative to the plugin directory. e.g. `"myplugin"`.
+
+- `args` `(array: [])` – Specifies the arguments used to execute the plugin. If
+  the arguments are provided here, the `command` parameter should only contain
+  the named program. e.g. `"--my_flag=1"`.
+
+- `env` `(array: [])` – Specifies the environment variables used during the
+  execution of the plugin. Each entry is of the form "key=value". e.g
+  `"FOO=BAR"`.
 
 ### Sample Payload
 
@@ -87,7 +93,7 @@ $ curl \
     --header "X-Vault-Token: ..." \
     --request PUT \
     --data @payload.json \
-    https://vault.rocks/v1/sys/plugins/catalog/example-plugin
+    http://127.0.0.1:8200/v1/sys/plugins/catalog/example-plugin
 ```
 
 ## Read Plugin
@@ -112,7 +118,7 @@ This endpoint returns the configuration data for the plugin with the given name.
 $ curl \
     --header "X-Vault-Token: ..." \
     --request GET \
-    https://vault.rocks/v1/sys/plugins/catalog/example-plugin
+    http://127.0.0.1:8200/v1/sys/plugins/catalog/example-plugin
 ```
 
 ### Sample Response
@@ -150,5 +156,5 @@ This endpoint removes the plugin with the given name.
 $ curl \
     --header "X-Vault-Token: ..." \
     --request DELETE \
-    https://vault.rocks/v1/sys/plugins/catalog/example-plugin
+    http://127.0.0.1:8200/v1/sys/plugins/catalog/example-plugin
 ```

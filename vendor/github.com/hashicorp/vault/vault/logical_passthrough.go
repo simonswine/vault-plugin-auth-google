@@ -1,10 +1,12 @@
 package vault
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"strings"
 
+	"github.com/hashicorp/errwrap"
 	"github.com/hashicorp/vault/helper/jsonutil"
 	"github.com/hashicorp/vault/helper/parseutil"
 	"github.com/hashicorp/vault/helper/wrapping"
@@ -14,19 +16,19 @@ import (
 
 // PassthroughBackendFactory returns a PassthroughBackend
 // with leases switched off
-func PassthroughBackendFactory(conf *logical.BackendConfig) (logical.Backend, error) {
-	return LeaseSwitchedPassthroughBackend(conf, false)
+func PassthroughBackendFactory(ctx context.Context, conf *logical.BackendConfig) (logical.Backend, error) {
+	return LeaseSwitchedPassthroughBackend(ctx, conf, false)
 }
 
 // LeasedPassthroughBackendFactory returns a PassthroughBackend
 // with leases switched on
-func LeasedPassthroughBackendFactory(conf *logical.BackendConfig) (logical.Backend, error) {
-	return LeaseSwitchedPassthroughBackend(conf, true)
+func LeasedPassthroughBackendFactory(ctx context.Context, conf *logical.BackendConfig) (logical.Backend, error) {
+	return LeaseSwitchedPassthroughBackend(ctx, conf, true)
 }
 
 // LeaseSwitchedPassthroughBackend returns a PassthroughBackend
 // with leases switched on or off
-func LeaseSwitchedPassthroughBackend(conf *logical.BackendConfig, leases bool) (logical.Backend, error) {
+func LeaseSwitchedPassthroughBackend(ctx context.Context, conf *logical.BackendConfig, leases bool) (logical.Backend, error) {
 	var b PassthroughBackend
 	b.generateLeases = leases
 	b.Backend = &framework.Backend{
@@ -34,12 +36,12 @@ func LeaseSwitchedPassthroughBackend(conf *logical.BackendConfig, leases bool) (
 
 		PathsSpecial: &logical.Paths{
 			SealWrapStorage: []string{
-				"/",
+				"*",
 			},
 		},
 
 		Paths: []*framework.Path{
-			&framework.Path{
+			{
 				Pattern: ".*",
 
 				Callbacks: map[logical.Operation]framework.OperationFunc{
@@ -68,9 +70,9 @@ func LeaseSwitchedPassthroughBackend(conf *logical.BackendConfig, leases bool) (
 	}
 
 	if conf == nil {
-		return nil, fmt.Errorf("Configuation passed into backend is nil")
+		return nil, fmt.Errorf("configuration passed into backend is nil")
 	}
-	b.Backend.Setup(conf)
+	b.Backend.Setup(ctx, conf)
 
 	return &b, nil
 }
@@ -84,28 +86,25 @@ type PassthroughBackend struct {
 	generateLeases bool
 }
 
-func (b *PassthroughBackend) handleRevoke(
-	req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
+func (b *PassthroughBackend) handleRevoke(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
 	// This is a no-op
 	return nil, nil
 }
 
-func (b *PassthroughBackend) handleExistenceCheck(
-	req *logical.Request, data *framework.FieldData) (bool, error) {
-	out, err := req.Storage.Get(req.Path)
+func (b *PassthroughBackend) handleExistenceCheck(ctx context.Context, req *logical.Request, data *framework.FieldData) (bool, error) {
+	out, err := req.Storage.Get(ctx, req.Path)
 	if err != nil {
-		return false, fmt.Errorf("existence check failed: %v", err)
+		return false, errwrap.Wrapf("existence check failed: {{err}}", err)
 	}
 
 	return out != nil, nil
 }
 
-func (b *PassthroughBackend) handleRead(
-	req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
+func (b *PassthroughBackend) handleRead(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
 	// Read the path
-	out, err := req.Storage.Get(req.Path)
+	out, err := req.Storage.Get(ctx, req.Path)
 	if err != nil {
-		return nil, fmt.Errorf("read failed: %v", err)
+		return nil, errwrap.Wrapf("read failed: {{err}}", err)
 	}
 
 	// Fast-path the no data case
@@ -117,7 +116,7 @@ func (b *PassthroughBackend) handleRead(
 	var rawData map[string]interface{}
 
 	if err := jsonutil.DecodeJSON(out.Value, &rawData); err != nil {
-		return nil, fmt.Errorf("json decoding failed: %v", err)
+		return nil, errwrap.Wrapf("json decoding failed: {{err}}", err)
 	}
 
 	var resp *logical.Response
@@ -167,8 +166,7 @@ func (b *PassthroughBackend) GeneratesLeases() bool {
 	return b.generateLeases
 }
 
-func (b *PassthroughBackend) handleWrite(
-	req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
+func (b *PassthroughBackend) handleWrite(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
 	// Check that some fields are given
 	if len(req.Data) == 0 {
 		return logical.ErrorResponse("missing data fields"), nil
@@ -177,7 +175,7 @@ func (b *PassthroughBackend) handleWrite(
 	// JSON encode the data
 	buf, err := json.Marshal(req.Data)
 	if err != nil {
-		return nil, fmt.Errorf("json encoding failed: %v", err)
+		return nil, errwrap.Wrapf("json encoding failed: {{err}}", err)
 	}
 
 	// Write out a new key
@@ -185,25 +183,23 @@ func (b *PassthroughBackend) handleWrite(
 		Key:   req.Path,
 		Value: buf,
 	}
-	if err := req.Storage.Put(entry); err != nil {
-		return nil, fmt.Errorf("failed to write: %v", err)
+	if err := req.Storage.Put(ctx, entry); err != nil {
+		return nil, errwrap.Wrapf("failed to write: {{err}}", err)
 	}
 
 	return nil, nil
 }
 
-func (b *PassthroughBackend) handleDelete(
-	req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
+func (b *PassthroughBackend) handleDelete(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
 	// Delete the key at the request path
-	if err := req.Storage.Delete(req.Path); err != nil {
+	if err := req.Storage.Delete(ctx, req.Path); err != nil {
 		return nil, err
 	}
 
 	return nil, nil
 }
 
-func (b *PassthroughBackend) handleList(
-	req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
+func (b *PassthroughBackend) handleList(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
 	// Right now we only handle directories, so ensure it ends with /; however,
 	// some physical backends may not handle the "/" case properly, so only add
 	// it if we're not listing the root
@@ -213,7 +209,7 @@ func (b *PassthroughBackend) handleList(
 	}
 
 	// List the keys at the prefix given by the request
-	keys, err := req.Storage.List(path)
+	keys, err := req.Storage.List(ctx, path)
 	if err != nil {
 		return nil, err
 	}

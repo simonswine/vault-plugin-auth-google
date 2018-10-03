@@ -1,4 +1,4 @@
-// Package appengine provides access to the Google App Engine Admin API.
+// Package appengine provides access to the App Engine Admin API.
 //
 // See https://cloud.google.com/appengine/docs/admin-api/
 //
@@ -311,6 +311,99 @@ func (s *CertificateRawData) MarshalJSON() ([]byte, error) {
 	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
 }
 
+// CreateVersionMetadataV1: Metadata for the given
+// google.longrunning.Operation during a
+// google.appengine.v1.CreateVersionRequest.
+type CreateVersionMetadataV1 struct {
+	// CloudBuildId: The Cloud Build ID if one was created as part of the
+	// version create. @OutputOnly
+	CloudBuildId string `json:"cloudBuildId,omitempty"`
+
+	// ForceSendFields is a list of field names (e.g. "CloudBuildId") to
+	// unconditionally include in API requests. By default, fields with
+	// empty values are omitted from API requests. However, any non-pointer,
+	// non-interface field appearing in ForceSendFields will be sent to the
+	// server regardless of whether the field is empty or not. This may be
+	// used to include empty fields in Patch requests.
+	ForceSendFields []string `json:"-"`
+
+	// NullFields is a list of field names (e.g. "CloudBuildId") to include
+	// in API requests with the JSON null value. By default, fields with
+	// empty values are omitted from API requests. However, any field with
+	// an empty value appearing in NullFields will be sent to the server as
+	// null. It is an error if a field in this list has a non-empty value.
+	// This may be used to include null fields in Patch requests.
+	NullFields []string `json:"-"`
+}
+
+func (s *CreateVersionMetadataV1) MarshalJSON() ([]byte, error) {
+	type NoMethod CreateVersionMetadataV1
+	raw := NoMethod(*s)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
+}
+
+// CreateVersionMetadataV1Alpha: Metadata for the given
+// google.longrunning.Operation during a
+// google.appengine.v1alpha.CreateVersionRequest.
+type CreateVersionMetadataV1Alpha struct {
+	// CloudBuildId: The Cloud Build ID if one was created as part of the
+	// version create. @OutputOnly
+	CloudBuildId string `json:"cloudBuildId,omitempty"`
+
+	// ForceSendFields is a list of field names (e.g. "CloudBuildId") to
+	// unconditionally include in API requests. By default, fields with
+	// empty values are omitted from API requests. However, any non-pointer,
+	// non-interface field appearing in ForceSendFields will be sent to the
+	// server regardless of whether the field is empty or not. This may be
+	// used to include empty fields in Patch requests.
+	ForceSendFields []string `json:"-"`
+
+	// NullFields is a list of field names (e.g. "CloudBuildId") to include
+	// in API requests with the JSON null value. By default, fields with
+	// empty values are omitted from API requests. However, any field with
+	// an empty value appearing in NullFields will be sent to the server as
+	// null. It is an error if a field in this list has a non-empty value.
+	// This may be used to include null fields in Patch requests.
+	NullFields []string `json:"-"`
+}
+
+func (s *CreateVersionMetadataV1Alpha) MarshalJSON() ([]byte, error) {
+	type NoMethod CreateVersionMetadataV1Alpha
+	raw := NoMethod(*s)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
+}
+
+// CreateVersionMetadataV1Beta: Metadata for the given
+// google.longrunning.Operation during a
+// google.appengine.v1beta.CreateVersionRequest.
+type CreateVersionMetadataV1Beta struct {
+	// CloudBuildId: The Cloud Build ID if one was created as part of the
+	// version create. @OutputOnly
+	CloudBuildId string `json:"cloudBuildId,omitempty"`
+
+	// ForceSendFields is a list of field names (e.g. "CloudBuildId") to
+	// unconditionally include in API requests. By default, fields with
+	// empty values are omitted from API requests. However, any non-pointer,
+	// non-interface field appearing in ForceSendFields will be sent to the
+	// server regardless of whether the field is empty or not. This may be
+	// used to include empty fields in Patch requests.
+	ForceSendFields []string `json:"-"`
+
+	// NullFields is a list of field names (e.g. "CloudBuildId") to include
+	// in API requests with the JSON null value. By default, fields with
+	// empty values are omitted from API requests. However, any field with
+	// an empty value appearing in NullFields will be sent to the server as
+	// null. It is an error if a field in this list has a non-empty value.
+	// This may be used to include null fields in Patch requests.
+	NullFields []string `json:"-"`
+}
+
+func (s *CreateVersionMetadataV1Beta) MarshalJSON() ([]byte, error) {
+	type NoMethod CreateVersionMetadataV1Beta
+	raw := NoMethod(*s)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
+}
+
 // DomainMapping: A domain serving an App Engine application.
 type DomainMapping struct {
 	// Id: Relative name of the domain serving the application. Example:
@@ -562,6 +655,10 @@ func (s *ListOperationsResponse) MarshalJSON() ([]byte, error) {
 
 // Location: A resource that represents Google Cloud Platform location.
 type Location struct {
+	// DisplayName: The friendly name for this location, typically a nearby
+	// city name. For example, "Tokyo".
+	DisplayName string `json:"displayName,omitempty"`
+
 	// Labels: Cross-service attributes for the location. For
 	// example
 	// {"cloud.googleapis.com/region": "us-east1"}
@@ -585,7 +682,7 @@ type Location struct {
 	// server.
 	googleapi.ServerResponse `json:"-"`
 
-	// ForceSendFields is a list of field names (e.g. "Labels") to
+	// ForceSendFields is a list of field names (e.g. "DisplayName") to
 	// unconditionally include in API requests. By default, fields with
 	// empty values are omitted from API requests. However, any non-pointer,
 	// non-interface field appearing in ForceSendFields will be sent to the
@@ -593,10 +690,10 @@ type Location struct {
 	// used to include empty fields in Patch requests.
 	ForceSendFields []string `json:"-"`
 
-	// NullFields is a list of field names (e.g. "Labels") to include in API
-	// requests with the JSON null value. By default, fields with empty
-	// values are omitted from API requests. However, any field with an
-	// empty value appearing in NullFields will be sent to the server as
+	// NullFields is a list of field names (e.g. "DisplayName") to include
+	// in API requests with the JSON null value. By default, fields with
+	// empty values are omitted from API requests. However, any field with
+	// an empty value appearing in NullFields will be sent to the server as
 	// null. It is an error if a field in this list has a non-empty value.
 	// This may be used to include null fields in Patch requests.
 	NullFields []string `json:"-"`
@@ -611,11 +708,11 @@ func (s *Location) MarshalJSON() ([]byte, error) {
 // LocationMetadata: Metadata for the given
 // google.cloud.location.Location.
 type LocationMetadata struct {
-	// FlexibleEnvironmentAvailable: App Engine Flexible Environment is
+	// FlexibleEnvironmentAvailable: App Engine flexible environment is
 	// available in the given location.@OutputOnly
 	FlexibleEnvironmentAvailable bool `json:"flexibleEnvironmentAvailable,omitempty"`
 
-	// StandardEnvironmentAvailable: App Engine Standard Environment is
+	// StandardEnvironmentAvailable: App Engine standard environment is
 	// available in the given location.@OutputOnly
 	StandardEnvironmentAvailable bool `json:"standardEnvironmentAvailable,omitempty"`
 
@@ -823,6 +920,8 @@ func (s *OperationMetadata) MarshalJSON() ([]byte, error) {
 // OperationMetadataV1: Metadata for the given
 // google.longrunning.Operation.
 type OperationMetadataV1 struct {
+	CreateVersionMetadata *CreateVersionMetadataV1 `json:"createVersionMetadata,omitempty"`
+
 	// EndTime: Time that this operation completed.@OutputOnly
 	EndTime string `json:"endTime,omitempty"`
 
@@ -848,20 +947,22 @@ type OperationMetadataV1 struct {
 	// @OutputOnly
 	Warning []string `json:"warning,omitempty"`
 
-	// ForceSendFields is a list of field names (e.g. "EndTime") to
-	// unconditionally include in API requests. By default, fields with
-	// empty values are omitted from API requests. However, any non-pointer,
-	// non-interface field appearing in ForceSendFields will be sent to the
-	// server regardless of whether the field is empty or not. This may be
-	// used to include empty fields in Patch requests.
+	// ForceSendFields is a list of field names (e.g.
+	// "CreateVersionMetadata") to unconditionally include in API requests.
+	// By default, fields with empty values are omitted from API requests.
+	// However, any non-pointer, non-interface field appearing in
+	// ForceSendFields will be sent to the server regardless of whether the
+	// field is empty or not. This may be used to include empty fields in
+	// Patch requests.
 	ForceSendFields []string `json:"-"`
 
-	// NullFields is a list of field names (e.g. "EndTime") to include in
-	// API requests with the JSON null value. By default, fields with empty
-	// values are omitted from API requests. However, any field with an
-	// empty value appearing in NullFields will be sent to the server as
-	// null. It is an error if a field in this list has a non-empty value.
-	// This may be used to include null fields in Patch requests.
+	// NullFields is a list of field names (e.g. "CreateVersionMetadata") to
+	// include in API requests with the JSON null value. By default, fields
+	// with empty values are omitted from API requests. However, any field
+	// with an empty value appearing in NullFields will be sent to the
+	// server as null. It is an error if a field in this list has a
+	// non-empty value. This may be used to include null fields in Patch
+	// requests.
 	NullFields []string `json:"-"`
 }
 
@@ -874,6 +975,8 @@ func (s *OperationMetadataV1) MarshalJSON() ([]byte, error) {
 // OperationMetadataV1Alpha: Metadata for the given
 // google.longrunning.Operation.
 type OperationMetadataV1Alpha struct {
+	CreateVersionMetadata *CreateVersionMetadataV1Alpha `json:"createVersionMetadata,omitempty"`
+
 	// EndTime: Time that this operation completed.@OutputOnly
 	EndTime string `json:"endTime,omitempty"`
 
@@ -899,20 +1002,22 @@ type OperationMetadataV1Alpha struct {
 	// @OutputOnly
 	Warning []string `json:"warning,omitempty"`
 
-	// ForceSendFields is a list of field names (e.g. "EndTime") to
-	// unconditionally include in API requests. By default, fields with
-	// empty values are omitted from API requests. However, any non-pointer,
-	// non-interface field appearing in ForceSendFields will be sent to the
-	// server regardless of whether the field is empty or not. This may be
-	// used to include empty fields in Patch requests.
+	// ForceSendFields is a list of field names (e.g.
+	// "CreateVersionMetadata") to unconditionally include in API requests.
+	// By default, fields with empty values are omitted from API requests.
+	// However, any non-pointer, non-interface field appearing in
+	// ForceSendFields will be sent to the server regardless of whether the
+	// field is empty or not. This may be used to include empty fields in
+	// Patch requests.
 	ForceSendFields []string `json:"-"`
 
-	// NullFields is a list of field names (e.g. "EndTime") to include in
-	// API requests with the JSON null value. By default, fields with empty
-	// values are omitted from API requests. However, any field with an
-	// empty value appearing in NullFields will be sent to the server as
-	// null. It is an error if a field in this list has a non-empty value.
-	// This may be used to include null fields in Patch requests.
+	// NullFields is a list of field names (e.g. "CreateVersionMetadata") to
+	// include in API requests with the JSON null value. By default, fields
+	// with empty values are omitted from API requests. However, any field
+	// with an empty value appearing in NullFields will be sent to the
+	// server as null. It is an error if a field in this list has a
+	// non-empty value. This may be used to include null fields in Patch
+	// requests.
 	NullFields []string `json:"-"`
 }
 
@@ -925,6 +1030,8 @@ func (s *OperationMetadataV1Alpha) MarshalJSON() ([]byte, error) {
 // OperationMetadataV1Beta: Metadata for the given
 // google.longrunning.Operation.
 type OperationMetadataV1Beta struct {
+	CreateVersionMetadata *CreateVersionMetadataV1Beta `json:"createVersionMetadata,omitempty"`
+
 	// EndTime: Time that this operation completed.@OutputOnly
 	EndTime string `json:"endTime,omitempty"`
 
@@ -950,20 +1057,22 @@ type OperationMetadataV1Beta struct {
 	// @OutputOnly
 	Warning []string `json:"warning,omitempty"`
 
-	// ForceSendFields is a list of field names (e.g. "EndTime") to
-	// unconditionally include in API requests. By default, fields with
-	// empty values are omitted from API requests. However, any non-pointer,
-	// non-interface field appearing in ForceSendFields will be sent to the
-	// server regardless of whether the field is empty or not. This may be
-	// used to include empty fields in Patch requests.
+	// ForceSendFields is a list of field names (e.g.
+	// "CreateVersionMetadata") to unconditionally include in API requests.
+	// By default, fields with empty values are omitted from API requests.
+	// However, any non-pointer, non-interface field appearing in
+	// ForceSendFields will be sent to the server regardless of whether the
+	// field is empty or not. This may be used to include empty fields in
+	// Patch requests.
 	ForceSendFields []string `json:"-"`
 
-	// NullFields is a list of field names (e.g. "EndTime") to include in
-	// API requests with the JSON null value. By default, fields with empty
-	// values are omitted from API requests. However, any field with an
-	// empty value appearing in NullFields will be sent to the server as
-	// null. It is an error if a field in this list has a non-empty value.
-	// This may be used to include null fields in Patch requests.
+	// NullFields is a list of field names (e.g. "CreateVersionMetadata") to
+	// include in API requests with the JSON null value. By default, fields
+	// with empty values are omitted from API requests. However, any field
+	// with an empty value appearing in NullFields will be sent to the
+	// server as null. It is an error if a field in this list has a
+	// non-empty value. This may be used to include null fields in Patch
+	// requests.
 	NullFields []string `json:"-"`
 }
 
@@ -1232,6 +1341,7 @@ func (c *AppsAuthorizedCertificatesCreateCall) doRequest(alt string) (*http.Resp
 	}
 	reqHeaders.Set("Content-Type", "application/json")
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "v1alpha/apps/{appsId}/authorizedCertificates")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("POST", urls, body)
@@ -1361,6 +1471,7 @@ func (c *AppsAuthorizedCertificatesDeleteCall) doRequest(alt string) (*http.Resp
 	reqHeaders.Set("User-Agent", c.s.userAgent())
 	var body io.Reader = nil
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "v1alpha/apps/{appsId}/authorizedCertificates/{authorizedCertificatesId}")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("DELETE", urls, body)
@@ -1520,6 +1631,7 @@ func (c *AppsAuthorizedCertificatesGetCall) doRequest(alt string) (*http.Respons
 	}
 	var body io.Reader = nil
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "v1alpha/apps/{appsId}/authorizedCertificates/{authorizedCertificatesId}")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("GET", urls, body)
@@ -1703,6 +1815,7 @@ func (c *AppsAuthorizedCertificatesListCall) doRequest(alt string) (*http.Respon
 	}
 	var body io.Reader = nil
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "v1alpha/apps/{appsId}/authorizedCertificates")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("GET", urls, body)
@@ -1892,6 +2005,7 @@ func (c *AppsAuthorizedCertificatesPatchCall) doRequest(alt string) (*http.Respo
 	}
 	reqHeaders.Set("Content-Type", "application/json")
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "v1alpha/apps/{appsId}/authorizedCertificates/{authorizedCertificatesId}")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("PATCH", urls, body)
@@ -2061,6 +2175,7 @@ func (c *AppsAuthorizedDomainsListCall) doRequest(alt string) (*http.Response, e
 	}
 	var body io.Reader = nil
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "v1alpha/apps/{appsId}/authorizedDomains")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("GET", urls, body)
@@ -2253,6 +2368,7 @@ func (c *AppsDomainMappingsCreateCall) doRequest(alt string) (*http.Response, er
 	}
 	reqHeaders.Set("Content-Type", "application/json")
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "v1alpha/apps/{appsId}/domainMappings")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("POST", urls, body)
@@ -2399,6 +2515,7 @@ func (c *AppsDomainMappingsDeleteCall) doRequest(alt string) (*http.Response, er
 	reqHeaders.Set("User-Agent", c.s.userAgent())
 	var body io.Reader = nil
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "v1alpha/apps/{appsId}/domainMappings/{domainMappingsId}")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("DELETE", urls, body)
@@ -2547,6 +2664,7 @@ func (c *AppsDomainMappingsGetCall) doRequest(alt string) (*http.Response, error
 	}
 	var body io.Reader = nil
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "v1alpha/apps/{appsId}/domainMappings/{domainMappingsId}")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("GET", urls, body)
@@ -2709,6 +2827,7 @@ func (c *AppsDomainMappingsListCall) doRequest(alt string) (*http.Response, erro
 	}
 	var body io.Reader = nil
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "v1alpha/apps/{appsId}/domainMappings")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("GET", urls, body)
@@ -2899,6 +3018,7 @@ func (c *AppsDomainMappingsPatchCall) doRequest(alt string) (*http.Response, err
 	}
 	reqHeaders.Set("Content-Type", "application/json")
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "v1alpha/apps/{appsId}/domainMappings/{domainMappingsId}")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("PATCH", urls, body)
@@ -3007,7 +3127,7 @@ type AppsLocationsGetCall struct {
 	header_      http.Header
 }
 
-// Get: Get information about a location.
+// Get: Gets information about a location.
 func (r *AppsLocationsService) Get(appsId string, locationsId string) *AppsLocationsGetCall {
 	c := &AppsLocationsGetCall{s: r.s, urlParams_: make(gensupport.URLParams)}
 	c.appsId = appsId
@@ -3061,6 +3181,7 @@ func (c *AppsLocationsGetCall) doRequest(alt string) (*http.Response, error) {
 	}
 	var body io.Reader = nil
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "v1alpha/apps/{appsId}/locations/{locationsId}")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("GET", urls, body)
@@ -3110,7 +3231,7 @@ func (c *AppsLocationsGetCall) Do(opts ...googleapi.CallOption) (*Location, erro
 	}
 	return ret, nil
 	// {
-	//   "description": "Get information about a location.",
+	//   "description": "Gets information about a location.",
 	//   "flatPath": "v1alpha/apps/{appsId}/locations/{locationsId}",
 	//   "httpMethod": "GET",
 	//   "id": "appengine.apps.locations.get",
@@ -3231,6 +3352,7 @@ func (c *AppsLocationsListCall) doRequest(alt string) (*http.Response, error) {
 	}
 	var body io.Reader = nil
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "v1alpha/apps/{appsId}/locations")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("GET", urls, body)
@@ -3412,6 +3534,7 @@ func (c *AppsOperationsGetCall) doRequest(alt string) (*http.Response, error) {
 	}
 	var body io.Reader = nil
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "v1alpha/apps/{appsId}/operations/{operationsId}")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("GET", urls, body)
@@ -3590,6 +3713,7 @@ func (c *AppsOperationsListCall) doRequest(alt string) (*http.Response, error) {
 	}
 	var body io.Reader = nil
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "v1alpha/apps/{appsId}/operations")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("GET", urls, body)

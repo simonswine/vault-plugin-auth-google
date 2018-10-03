@@ -218,6 +218,14 @@ type PubprofilesService struct {
 
 // Account: Configuration data for an Ad Exchange buyer account.
 type Account struct {
+	// ApplyPretargetingToNonGuaranteedDeals: When this is false, bid
+	// requests that include a deal ID for a private auction or preferred
+	// deal are always sent to your bidder. When true, all active
+	// pretargeting configs will be applied to private auctions and
+	// preferred deals. Programmatic Guaranteed deals (when enabled) are
+	// always sent to your bidder.
+	ApplyPretargetingToNonGuaranteedDeals bool `json:"applyPretargetingToNonGuaranteedDeals,omitempty"`
+
 	// BidderLocation: Your bidder locations that have distinct URLs.
 	BidderLocation []*AccountBidderLocation `json:"bidderLocation,omitempty"`
 
@@ -254,21 +262,22 @@ type Account struct {
 	// server.
 	googleapi.ServerResponse `json:"-"`
 
-	// ForceSendFields is a list of field names (e.g. "BidderLocation") to
-	// unconditionally include in API requests. By default, fields with
-	// empty values are omitted from API requests. However, any non-pointer,
-	// non-interface field appearing in ForceSendFields will be sent to the
-	// server regardless of whether the field is empty or not. This may be
-	// used to include empty fields in Patch requests.
+	// ForceSendFields is a list of field names (e.g.
+	// "ApplyPretargetingToNonGuaranteedDeals") to unconditionally include
+	// in API requests. By default, fields with empty values are omitted
+	// from API requests. However, any non-pointer, non-interface field
+	// appearing in ForceSendFields will be sent to the server regardless of
+	// whether the field is empty or not. This may be used to include empty
+	// fields in Patch requests.
 	ForceSendFields []string `json:"-"`
 
-	// NullFields is a list of field names (e.g. "BidderLocation") to
-	// include in API requests with the JSON null value. By default, fields
-	// with empty values are omitted from API requests. However, any field
-	// with an empty value appearing in NullFields will be sent to the
-	// server as null. It is an error if a field in this list has a
-	// non-empty value. This may be used to include null fields in Patch
-	// requests.
+	// NullFields is a list of field names (e.g.
+	// "ApplyPretargetingToNonGuaranteedDeals") to include in API requests
+	// with the JSON null value. By default, fields with empty values are
+	// omitted from API requests. However, any field with an empty value
+	// appearing in NullFields will be sent to the server as null. It is an
+	// error if a field in this list has a non-empty value. This may be used
+	// to include null fields in Patch requests.
 	NullFields []string `json:"-"`
 }
 
@@ -745,7 +754,8 @@ func (s *CreateOrdersResponse) MarshalJSON() ([]byte, error) {
 // Creative: A creative and its classification data.
 type Creative struct {
 	// HTMLSnippet: The HTML snippet that displays the ad when inserted in
-	// the web page. If set, videoURL should not be set.
+	// the web page. If set, videoURL, videoVastXML, and nativeAd should not
+	// be set.
 	HTMLSnippet string `json:"HTMLSnippet,omitempty"`
 
 	// AccountId: Account id.
@@ -788,6 +798,17 @@ type Creative struct {
 	// creative. Read-only. This field should not be set in requests.
 	Corrections []*CreativeCorrections `json:"corrections,omitempty"`
 
+	// CreativeStatusIdentityType: Creative status identity type that the
+	// creative item applies to. Ad Exchange real-time bidding is migrating
+	// to the sizeless creative verification. Originally, Ad Exchange
+	// assigned creative verification status to a unique combination of a
+	// buyer creative ID and creative dimensions. Post-migration, a single
+	// verification status will be assigned at the buyer creative ID level.
+	// This field allows to distinguish whether a given creative status
+	// applies to a unique combination of a buyer creative ID and creative
+	// dimensions, or to a buyer creative ID as a whole.
+	CreativeStatusIdentityType string `json:"creativeStatusIdentityType,omitempty"`
+
 	// DealsStatus: Top-level deals status. Read-only. This field should not
 	// be set in requests. If disapproved, an entry for
 	// auctionType=DIRECT_DEALS (or ALL) in servingRestrictions will also
@@ -818,9 +839,9 @@ type Creative struct {
 	// field should not be set in requests.
 	Languages []string `json:"languages,omitempty"`
 
-	// NativeAd: If nativeAd is set, HTMLSnippet and the videoURL outside of
-	// nativeAd should not be set. (The videoURL inside nativeAd can be
-	// set.)
+	// NativeAd: If nativeAd is set, HTMLSnippet, videoVastXML, and the
+	// videoURL outside of nativeAd should not be set. (The videoURL inside
+	// nativeAd can be set.)
 	NativeAd *CreativeNativeAd `json:"nativeAd,omitempty"`
 
 	// OpenAuctionStatus: Top-level open auction status. Read-only. This
@@ -865,10 +886,15 @@ type Creative struct {
 	// not be set in requests.
 	Version int64 `json:"version,omitempty"`
 
-	// VideoURL: The URL to fetch a video ad. If set, HTMLSnippet and the
-	// nativeAd should not be set. Note, this is different from
-	// resource.native_ad.video_url above.
+	// VideoURL: The URL to fetch a video ad. If set, HTMLSnippet,
+	// videoVastXML, and nativeAd should not be set. Note, this is different
+	// from resource.native_ad.video_url above.
 	VideoURL string `json:"videoURL,omitempty"`
+
+	// VideoVastXML: The contents of a VAST document for a video ad. This
+	// document should conform to the VAST 2.0 or 3.0 standard. If set,
+	// HTMLSnippet, videoURL, and nativeAd and should not be set.
+	VideoVastXML string `json:"videoVastXML,omitempty"`
 
 	// Width: Ad width.
 	Width int64 `json:"width,omitempty"`
@@ -1041,9 +1067,9 @@ func (s *CreativeFilteringReasonsReasons) MarshalJSON() ([]byte, error) {
 	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
 }
 
-// CreativeNativeAd: If nativeAd is set, HTMLSnippet and the videoURL
-// outside of nativeAd should not be set. (The videoURL inside nativeAd
-// can be set.)
+// CreativeNativeAd: If nativeAd is set, HTMLSnippet, videoVastXML, and
+// the videoURL outside of nativeAd should not be set. (The videoURL
+// inside nativeAd can be set.)
 type CreativeNativeAd struct {
 	Advertiser string `json:"advertiser,omitempty"`
 
@@ -3361,10 +3387,6 @@ func (s *Proposal) MarshalJSON() ([]byte, error) {
 }
 
 type PublisherProfileApiProto struct {
-	// AccountId: Deprecated: use the seller.account_id. The account id of
-	// the seller.
-	AccountId string `json:"accountId,omitempty"`
-
 	// Audience: Publisher provided info on its audience.
 	Audience string `json:"audience,omitempty"`
 
@@ -3437,7 +3459,7 @@ type PublisherProfileApiProto struct {
 	// TopHeadlines: Publisher provided key metrics and rankings.
 	TopHeadlines []string `json:"topHeadlines,omitempty"`
 
-	// ForceSendFields is a list of field names (e.g. "AccountId") to
+	// ForceSendFields is a list of field names (e.g. "Audience") to
 	// unconditionally include in API requests. By default, fields with
 	// empty values are omitted from API requests. However, any non-pointer,
 	// non-interface field appearing in ForceSendFields will be sent to the
@@ -3445,7 +3467,7 @@ type PublisherProfileApiProto struct {
 	// used to include empty fields in Patch requests.
 	ForceSendFields []string `json:"-"`
 
-	// NullFields is a list of field names (e.g. "AccountId") to include in
+	// NullFields is a list of field names (e.g. "Audience") to include in
 	// API requests with the JSON null value. By default, fields with empty
 	// values are omitted from API requests. However, any field with an
 	// empty value appearing in NullFields will be sent to the server as
@@ -3570,6 +3592,10 @@ type TargetingValue struct {
 	// Filled in when the key is GOOG_DAYPART_TARGETING.
 	DayPartTargetingValue *TargetingValueDayPartTargeting `json:"dayPartTargetingValue,omitempty"`
 
+	DemogAgeCriteriaValue *TargetingValueDemogAgeCriteria `json:"demogAgeCriteriaValue,omitempty"`
+
+	DemogGenderCriteriaValue *TargetingValueDemogGenderCriteria `json:"demogGenderCriteriaValue,omitempty"`
+
 	// LongValue: The long value to exclude/include.
 	LongValue int64 `json:"longValue,omitempty,string"`
 
@@ -3600,7 +3626,11 @@ func (s *TargetingValue) MarshalJSON() ([]byte, error) {
 	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
 }
 
+// TargetingValueCreativeSize: Next Id: 7
 type TargetingValueCreativeSize struct {
+	// AllowedFormats: The formats allowed by the publisher.
+	AllowedFormats []string `json:"allowedFormats,omitempty"`
+
 	// CompanionSizes: For video size type, the list of companion sizes.
 	CompanionSizes []*TargetingValueSize `json:"companionSizes,omitempty"`
 
@@ -3617,7 +3647,7 @@ type TargetingValueCreativeSize struct {
 	// SkippableAdType: The skippable ad type for video size.
 	SkippableAdType string `json:"skippableAdType,omitempty"`
 
-	// ForceSendFields is a list of field names (e.g. "CompanionSizes") to
+	// ForceSendFields is a list of field names (e.g. "AllowedFormats") to
 	// unconditionally include in API requests. By default, fields with
 	// empty values are omitted from API requests. However, any non-pointer,
 	// non-interface field appearing in ForceSendFields will be sent to the
@@ -3625,7 +3655,7 @@ type TargetingValueCreativeSize struct {
 	// used to include empty fields in Patch requests.
 	ForceSendFields []string `json:"-"`
 
-	// NullFields is a list of field names (e.g. "CompanionSizes") to
+	// NullFields is a list of field names (e.g. "AllowedFormats") to
 	// include in API requests with the JSON null value. By default, fields
 	// with empty values are omitted from API requests. However, any field
 	// with an empty value appearing in NullFields will be sent to the
@@ -3699,6 +3729,61 @@ type TargetingValueDayPartTargetingDayPart struct {
 
 func (s *TargetingValueDayPartTargetingDayPart) MarshalJSON() ([]byte, error) {
 	type NoMethod TargetingValueDayPartTargetingDayPart
+	raw := NoMethod(*s)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
+}
+
+type TargetingValueDemogAgeCriteria struct {
+	DemogAgeCriteriaIds []string `json:"demogAgeCriteriaIds,omitempty"`
+
+	// ForceSendFields is a list of field names (e.g. "DemogAgeCriteriaIds")
+	// to unconditionally include in API requests. By default, fields with
+	// empty values are omitted from API requests. However, any non-pointer,
+	// non-interface field appearing in ForceSendFields will be sent to the
+	// server regardless of whether the field is empty or not. This may be
+	// used to include empty fields in Patch requests.
+	ForceSendFields []string `json:"-"`
+
+	// NullFields is a list of field names (e.g. "DemogAgeCriteriaIds") to
+	// include in API requests with the JSON null value. By default, fields
+	// with empty values are omitted from API requests. However, any field
+	// with an empty value appearing in NullFields will be sent to the
+	// server as null. It is an error if a field in this list has a
+	// non-empty value. This may be used to include null fields in Patch
+	// requests.
+	NullFields []string `json:"-"`
+}
+
+func (s *TargetingValueDemogAgeCriteria) MarshalJSON() ([]byte, error) {
+	type NoMethod TargetingValueDemogAgeCriteria
+	raw := NoMethod(*s)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
+}
+
+type TargetingValueDemogGenderCriteria struct {
+	DemogGenderCriteriaIds []string `json:"demogGenderCriteriaIds,omitempty"`
+
+	// ForceSendFields is a list of field names (e.g.
+	// "DemogGenderCriteriaIds") to unconditionally include in API requests.
+	// By default, fields with empty values are omitted from API requests.
+	// However, any non-pointer, non-interface field appearing in
+	// ForceSendFields will be sent to the server regardless of whether the
+	// field is empty or not. This may be used to include empty fields in
+	// Patch requests.
+	ForceSendFields []string `json:"-"`
+
+	// NullFields is a list of field names (e.g. "DemogGenderCriteriaIds")
+	// to include in API requests with the JSON null value. By default,
+	// fields with empty values are omitted from API requests. However, any
+	// field with an empty value appearing in NullFields will be sent to the
+	// server as null. It is an error if a field in this list has a
+	// non-empty value. This may be used to include null fields in Patch
+	// requests.
+	NullFields []string `json:"-"`
+}
+
+func (s *TargetingValueDemogGenderCriteria) MarshalJSON() ([]byte, error) {
+	type NoMethod TargetingValueDemogGenderCriteria
 	raw := NoMethod(*s)
 	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
 }
@@ -3835,6 +3920,7 @@ func (c *AccountsGetCall) doRequest(alt string) (*http.Response, error) {
 	}
 	var body io.Reader = nil
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "accounts/{id}")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("GET", urls, body)
@@ -3971,6 +4057,7 @@ func (c *AccountsListCall) doRequest(alt string) (*http.Response, error) {
 	}
 	var body io.Reader = nil
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "accounts")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("GET", urls, body)
@@ -4096,6 +4183,7 @@ func (c *AccountsPatchCall) doRequest(alt string) (*http.Response, error) {
 	}
 	reqHeaders.Set("Content-Type", "application/json")
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "accounts/{id}")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("PATCH", urls, body)
@@ -4243,6 +4331,7 @@ func (c *AccountsUpdateCall) doRequest(alt string) (*http.Response, error) {
 	}
 	reqHeaders.Set("Content-Type", "application/json")
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "accounts/{id}")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("PUT", urls, body)
@@ -4390,6 +4479,7 @@ func (c *BillingInfoGetCall) doRequest(alt string) (*http.Response, error) {
 	}
 	var body io.Reader = nil
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "billinginfo/{accountId}")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("GET", urls, body)
@@ -4527,6 +4617,7 @@ func (c *BillingInfoListCall) doRequest(alt string) (*http.Response, error) {
 	}
 	var body io.Reader = nil
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "billinginfo")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("GET", urls, body)
@@ -4653,6 +4744,7 @@ func (c *BudgetGetCall) doRequest(alt string) (*http.Response, error) {
 	}
 	var body io.Reader = nil
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "billinginfo/{accountId}/{billingId}")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("GET", urls, body)
@@ -4797,6 +4889,7 @@ func (c *BudgetPatchCall) doRequest(alt string) (*http.Response, error) {
 	}
 	reqHeaders.Set("Content-Type", "application/json")
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "billinginfo/{accountId}/{billingId}")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("PATCH", urls, body)
@@ -4944,6 +5037,7 @@ func (c *BudgetUpdateCall) doRequest(alt string) (*http.Response, error) {
 	}
 	reqHeaders.Set("Content-Type", "application/json")
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "billinginfo/{accountId}/{billingId}")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("PUT", urls, body)
@@ -5084,6 +5178,7 @@ func (c *CreativesAddDealCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders.Set("User-Agent", c.s.userAgent())
 	var body io.Reader = nil
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "creatives/{accountId}/{buyerCreativeId}/addDeal/{dealId}")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("POST", urls, body)
@@ -5214,6 +5309,7 @@ func (c *CreativesGetCall) doRequest(alt string) (*http.Response, error) {
 	}
 	var body io.Reader = nil
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "creatives/{accountId}/{buyerCreativeId}")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("GET", urls, body)
@@ -5351,6 +5447,7 @@ func (c *CreativesInsertCall) doRequest(alt string) (*http.Response, error) {
 	}
 	reqHeaders.Set("Content-Type", "application/json")
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "creatives")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("POST", urls, body)
@@ -5547,6 +5644,7 @@ func (c *CreativesListCall) doRequest(alt string) (*http.Response, error) {
 	}
 	var body io.Reader = nil
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "creatives")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("GET", urls, body)
@@ -5755,6 +5853,7 @@ func (c *CreativesListDealsCall) doRequest(alt string) (*http.Response, error) {
 	}
 	var body io.Reader = nil
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "creatives/{accountId}/{buyerCreativeId}/listDeals")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("GET", urls, body)
@@ -5891,6 +5990,7 @@ func (c *CreativesRemoveDealCall) doRequest(alt string) (*http.Response, error) 
 	reqHeaders.Set("User-Agent", c.s.userAgent())
 	var body io.Reader = nil
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "creatives/{accountId}/{buyerCreativeId}/removeDeal/{dealId}")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("POST", urls, body)
@@ -6011,6 +6111,7 @@ func (c *MarketplacedealsDeleteCall) doRequest(alt string) (*http.Response, erro
 	}
 	reqHeaders.Set("Content-Type", "application/json")
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "proposals/{proposalId}/deals/delete")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("POST", urls, body)
@@ -6144,6 +6245,7 @@ func (c *MarketplacedealsInsertCall) doRequest(alt string) (*http.Response, erro
 	}
 	reqHeaders.Set("Content-Type", "application/json")
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "proposals/{proposalId}/deals/insert")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("POST", urls, body)
@@ -6291,6 +6393,7 @@ func (c *MarketplacedealsListCall) doRequest(alt string) (*http.Response, error)
 	}
 	var body io.Reader = nil
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "proposals/{proposalId}/deals")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("GET", urls, body)
@@ -6427,6 +6530,7 @@ func (c *MarketplacedealsUpdateCall) doRequest(alt string) (*http.Response, erro
 	}
 	reqHeaders.Set("Content-Type", "application/json")
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "proposals/{proposalId}/deals/update")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("POST", urls, body)
@@ -6560,6 +6664,7 @@ func (c *MarketplacenotesInsertCall) doRequest(alt string) (*http.Response, erro
 	}
 	reqHeaders.Set("Content-Type", "application/json")
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "proposals/{proposalId}/notes/insert")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("POST", urls, body)
@@ -6709,6 +6814,7 @@ func (c *MarketplacenotesListCall) doRequest(alt string) (*http.Response, error)
 	}
 	var body io.Reader = nil
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "proposals/{proposalId}/notes")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("GET", urls, body)
@@ -6844,6 +6950,7 @@ func (c *MarketplaceprivateauctionUpdateproposalCall) doRequest(alt string) (*ht
 	}
 	reqHeaders.Set("Content-Type", "application/json")
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "privateauction/{privateAuctionId}/updateproposal")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("POST", urls, body)
@@ -6974,6 +7081,7 @@ func (c *PerformanceReportListCall) doRequest(alt string) (*http.Response, error
 	}
 	var body io.Reader = nil
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "performancereport")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("GET", urls, body)
@@ -7124,6 +7232,7 @@ func (c *PretargetingConfigDeleteCall) doRequest(alt string) (*http.Response, er
 	reqHeaders.Set("User-Agent", c.s.userAgent())
 	var body io.Reader = nil
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "pretargetingconfigs/{accountId}/{configId}")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("DELETE", urls, body)
@@ -7245,6 +7354,7 @@ func (c *PretargetingConfigGetCall) doRequest(alt string) (*http.Response, error
 	}
 	var body io.Reader = nil
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "pretargetingconfigs/{accountId}/{configId}")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("GET", urls, body)
@@ -7385,6 +7495,7 @@ func (c *PretargetingConfigInsertCall) doRequest(alt string) (*http.Response, er
 	}
 	reqHeaders.Set("Content-Type", "application/json")
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "pretargetingconfigs/{accountId}")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("POST", urls, body)
@@ -7527,6 +7638,7 @@ func (c *PretargetingConfigListCall) doRequest(alt string) (*http.Response, erro
 	}
 	var body io.Reader = nil
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "pretargetingconfigs/{accountId}")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("GET", urls, body)
@@ -7661,6 +7773,7 @@ func (c *PretargetingConfigPatchCall) doRequest(alt string) (*http.Response, err
 	}
 	reqHeaders.Set("Content-Type", "application/json")
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "pretargetingconfigs/{accountId}/{configId}")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("PATCH", urls, body)
@@ -7806,6 +7919,7 @@ func (c *PretargetingConfigUpdateCall) doRequest(alt string) (*http.Response, er
 	}
 	reqHeaders.Set("Content-Type", "application/json")
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "pretargetingconfigs/{accountId}/{configId}")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("PUT", urls, body)
@@ -7956,6 +8070,7 @@ func (c *ProductsGetCall) doRequest(alt string) (*http.Response, error) {
 	}
 	var body io.Reader = nil
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "products/{productId}")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("GET", urls, body)
@@ -8098,6 +8213,7 @@ func (c *ProductsSearchCall) doRequest(alt string) (*http.Response, error) {
 	}
 	var body io.Reader = nil
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "products/search")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("GET", urls, body)
@@ -8228,6 +8344,7 @@ func (c *ProposalsGetCall) doRequest(alt string) (*http.Response, error) {
 	}
 	var body io.Reader = nil
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "proposals/{proposalId}")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("GET", urls, body)
@@ -8356,6 +8473,7 @@ func (c *ProposalsInsertCall) doRequest(alt string) (*http.Response, error) {
 	}
 	reqHeaders.Set("Content-Type", "application/json")
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "proposals/insert")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("POST", urls, body)
@@ -8480,6 +8598,7 @@ func (c *ProposalsPatchCall) doRequest(alt string) (*http.Response, error) {
 	}
 	reqHeaders.Set("Content-Type", "application/json")
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "proposals/{proposalId}/{revisionNumber}/{updateAction}")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("PATCH", urls, body)
@@ -8658,6 +8777,7 @@ func (c *ProposalsSearchCall) doRequest(alt string) (*http.Response, error) {
 	}
 	var body io.Reader = nil
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "proposals/search")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("GET", urls, body)
@@ -8775,6 +8895,7 @@ func (c *ProposalsSetupcompleteCall) doRequest(alt string) (*http.Response, erro
 	reqHeaders.Set("User-Agent", c.s.userAgent())
 	var body io.Reader = nil
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "proposals/{proposalId}/setupcomplete")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("POST", urls, body)
@@ -8881,6 +9002,7 @@ func (c *ProposalsUpdateCall) doRequest(alt string) (*http.Response, error) {
 	}
 	reqHeaders.Set("Content-Type", "application/json")
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "proposals/{proposalId}/{revisionNumber}/{updateAction}")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("PUT", urls, body)
@@ -9054,6 +9176,7 @@ func (c *PubprofilesListCall) doRequest(alt string) (*http.Response, error) {
 	}
 	var body io.Reader = nil
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "publisher/{accountId}/profiles")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("GET", urls, body)

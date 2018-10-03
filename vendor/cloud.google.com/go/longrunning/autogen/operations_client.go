@@ -1,10 +1,10 @@
-// Copyright 2017, Google LLC All rights reserved.
+// Copyright 2018 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-//     http://www.apache.org/licenses/LICENSE-2.0
+//     https://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"cloud.google.com/go/internal/version"
+	"github.com/golang/protobuf/proto"
 	gax "github.com/googleapis/gax-go"
 	"golang.org/x/net/context"
 	"google.golang.org/api/iterator"
@@ -71,6 +72,8 @@ func defaultOperationsCallOptions() *OperationsCallOptions {
 }
 
 // OperationsClient is a client for interacting with Google Long Running Operations API.
+//
+// Methods, except Close, may be called concurrently. However, fields must not be modified concurrently with method calls.
 type OperationsClient struct {
 	// The connection to the service.
 	conn *grpc.ClientConn
@@ -158,6 +161,7 @@ func (c *OperationsClient) ListOperations(ctx context.Context, req *longrunningp
 	ctx = insertMetadata(ctx, c.xGoogMetadata)
 	opts = append(c.CallOptions.ListOperations[0:len(c.CallOptions.ListOperations):len(c.CallOptions.ListOperations)], opts...)
 	it := &OperationIterator{}
+	req = proto.Clone(req).(*longrunningpb.ListOperationsRequest)
 	it.InternalFetch = func(pageSize int, pageToken string) ([]*longrunningpb.Operation, string, error) {
 		var resp *longrunningpb.ListOperationsResponse
 		req.PageToken = pageToken
@@ -185,6 +189,7 @@ func (c *OperationsClient) ListOperations(ctx context.Context, req *longrunningp
 		return nextPageToken, nil
 	}
 	it.pageInfo, it.nextFunc = iterator.NewPageInfo(fetch, it.bufLen, it.takeBuf)
+	it.pageInfo.MaxSize = int(req.PageSize)
 	return it
 }
 

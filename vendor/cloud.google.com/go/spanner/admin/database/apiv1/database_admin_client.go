@@ -1,10 +1,10 @@
-// Copyright 2017, Google LLC All rights reserved.
+// Copyright 2018 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-//     http://www.apache.org/licenses/LICENSE-2.0
+//     https://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
@@ -23,6 +23,7 @@ import (
 	"cloud.google.com/go/internal/version"
 	"cloud.google.com/go/longrunning"
 	lroauto "cloud.google.com/go/longrunning/autogen"
+	"github.com/golang/protobuf/proto"
 	gax "github.com/googleapis/gax-go"
 	"golang.org/x/net/context"
 	"google.golang.org/api/iterator"
@@ -85,6 +86,8 @@ func defaultDatabaseAdminCallOptions() *DatabaseAdminCallOptions {
 }
 
 // DatabaseAdminClient is a client for interacting with Cloud Spanner Database Admin API.
+//
+// Methods, except Close, may be called concurrently. However, fields must not be modified concurrently with method calls.
 type DatabaseAdminClient struct {
 	// The connection to the service.
 	conn *grpc.ClientConn
@@ -157,33 +160,12 @@ func (c *DatabaseAdminClient) setGoogleClientInfo(keyval ...string) {
 	c.xGoogMetadata = metadata.Pairs("x-goog-api-client", gax.XGoogHeader(kv...))
 }
 
-// DatabaseAdminInstancePath returns the path for the instance resource.
-func DatabaseAdminInstancePath(project, instance string) string {
-	return "" +
-		"projects/" +
-		project +
-		"/instances/" +
-		instance +
-		""
-}
-
-// DatabaseAdminDatabasePath returns the path for the database resource.
-func DatabaseAdminDatabasePath(project, instance, database string) string {
-	return "" +
-		"projects/" +
-		project +
-		"/instances/" +
-		instance +
-		"/databases/" +
-		database +
-		""
-}
-
 // ListDatabases lists Cloud Spanner databases.
 func (c *DatabaseAdminClient) ListDatabases(ctx context.Context, req *databasepb.ListDatabasesRequest, opts ...gax.CallOption) *DatabaseIterator {
 	ctx = insertMetadata(ctx, c.xGoogMetadata)
 	opts = append(c.CallOptions.ListDatabases[0:len(c.CallOptions.ListDatabases):len(c.CallOptions.ListDatabases)], opts...)
 	it := &DatabaseIterator{}
+	req = proto.Clone(req).(*databasepb.ListDatabasesRequest)
 	it.InternalFetch = func(pageSize int, pageToken string) ([]*databasepb.Database, string, error) {
 		var resp *databasepb.ListDatabasesResponse
 		req.PageToken = pageToken
@@ -211,6 +193,7 @@ func (c *DatabaseAdminClient) ListDatabases(ctx context.Context, req *databasepb
 		return nextPageToken, nil
 	}
 	it.pageInfo, it.nextFunc = iterator.NewPageInfo(fetch, it.bufLen, it.takeBuf)
+	it.pageInfo.MaxSize = int(req.PageSize)
 	return it
 }
 

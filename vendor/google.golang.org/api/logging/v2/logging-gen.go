@@ -1,5 +1,7 @@
 // Package logging provides access to the Stackdriver Logging API.
 //
+// This package is DEPRECATED. Use package cloud.google.com/go/logging instead.
+//
 // See https://cloud.google.com/logging/docs/
 //
 // Usage example:
@@ -1007,12 +1009,11 @@ type LogEntry struct {
 	HttpRequest *HttpRequest `json:"httpRequest,omitempty"`
 
 	// InsertId: Optional. A unique identifier for the log entry. If you
-	// provide a value, then Stackdriver Logging considers other log entries
-	// in the same project, with the same timestamp, and with the same
-	// insert_id to be duplicates which can be removed. If omitted in new
-	// log entries, then Stackdriver Logging assigns its own unique
-	// identifier. The insert_id is also used to order log entries that have
-	// the same timestamp value.
+	// provide a value, then Logging considers other log entries in the same
+	// project, with the same timestamp, and with the same insert_id to be
+	// duplicates which can be removed. If omitted in new log entries, then
+	// Logging assigns its own unique identifier. The insert_id is also used
+	// to order log entries that have the same timestamp value.
 	InsertId string `json:"insertId,omitempty"`
 
 	// JsonPayload: The log entry payload, represented as a structure that
@@ -1047,6 +1048,11 @@ type LogEntry struct {
 	// never return any results.
 	LogName string `json:"logName,omitempty"`
 
+	// Metadata: Output only. Additional metadata about the monitored
+	// resource. Only k8s_container, k8s_pod, and k8s_node
+	// MonitoredResources have this field populated.
+	Metadata *MonitoredResourceMetadata `json:"metadata,omitempty"`
+
 	// Operation: Optional. Information about an operation associated with
 	// the log entry, if applicable.
 	Operation *LogEntryOperation `json:"operation,omitempty"`
@@ -1057,13 +1063,13 @@ type LogEntry struct {
 	ProtoPayload googleapi.RawMessage `json:"protoPayload,omitempty"`
 
 	// ReceiveTimestamp: Output only. The time the log entry was received by
-	// Stackdriver Logging.
+	// Logging.
 	ReceiveTimestamp string `json:"receiveTimestamp,omitempty"`
 
-	// Resource: Required. The monitored resource associated with this log
-	// entry. Example: a log entry that reports a database error would be
-	// associated with the monitored resource designating the particular
-	// database that reported the error.
+	// Resource: Required. The primary monitored resource associated with
+	// this log entry. Example: a log entry that reports a database error
+	// would be associated with the monitored resource designating the
+	// particular database that reported the error.
 	Resource *MonitoredResource `json:"resource,omitempty"`
 
 	// Severity: Optional. The severity of the log entry. The default value
@@ -1089,9 +1095,9 @@ type LogEntry struct {
 	SourceLocation *LogEntrySourceLocation `json:"sourceLocation,omitempty"`
 
 	// SpanId: Optional. The span ID within the trace associated with the
-	// log entry. For Stackdriver Trace spans, this is the same format that
-	// the Stackdriver Trace API v2 uses: a 16-character hexadecimal
-	// encoding of an 8-byte array, such as <code>"000000000000004a"</code>.
+	// log entry. For Trace spans, this is the same format that the Trace
+	// API v2 uses: a 16-character hexadecimal encoding of an 8-byte array,
+	// such as <code>"000000000000004a"</code>.
 	SpanId string `json:"spanId,omitempty"`
 
 	// TextPayload: The log entry payload, represented as a Unicode string
@@ -1101,12 +1107,14 @@ type LogEntry struct {
 	// Timestamp: Optional. The time the event described by the log entry
 	// occurred. This time is used to compute the log entry's age and to
 	// enforce the logs retention period. If this field is omitted in a new
-	// log entry, then Stackdriver Logging assigns it the current
-	// time.Incoming log entries should have timestamps that are no more
-	// than the logs retention period in the past, and no more than 24 hours
-	// in the future. Log entries outside those time boundaries will not be
-	// available when calling entries.list, but those log entries can still
-	// be exported with LogSinks.
+	// log entry, then Logging assigns it the current time. Timestamps have
+	// nanosecond accuracy, but trailing zeros in the fractional seconds
+	// might be omitted when the timestamp is displayed.Incoming log entries
+	// should have timestamps that are no more than the logs retention
+	// period in the past, and no more than 24 hours in the future. Log
+	// entries outside those time boundaries will not be available when
+	// calling entries.list, but those log entries can still be exported
+	// with LogSinks.
 	Timestamp string `json:"timestamp,omitempty"`
 
 	// Trace: Optional. Resource name of the trace associated with the log
@@ -1114,6 +1122,15 @@ type LogEntry struct {
 	// assumed to be relative to //tracing.googleapis.com. Example:
 	// projects/my-projectid/traces/06796866738c859f2f19b7cfb3214824
 	Trace string `json:"trace,omitempty"`
+
+	// TraceSampled: Optional. The sampling decision of the trace associated
+	// with the log entry. True means that the trace resource name in the
+	// trace field was sampled for storage in a trace backend. False means
+	// that the trace was not sampled for storage when this log entry was
+	// written, or the sampling decision was unknown at the time. A
+	// non-sampled trace value is still useful as a request correlation
+	// identifier. The default is False.
+	TraceSampled bool `json:"traceSampled,omitempty"`
 
 	// ForceSendFields is a list of field names (e.g. "HttpRequest") to
 	// unconditionally include in API requests. By default, fields with
@@ -1224,11 +1241,11 @@ func (s *LogEntrySourceLocation) MarshalJSON() ([]byte, error) {
 }
 
 // LogExclusion: Specifies a set of log entries that are not to be
-// stored in Stackdriver Logging. If your project receives a large
-// volume of logs, you might be able to use exclusions to reduce your
-// chargeable logs. Exclusions are processed after log sinks, so you can
-// export log entries before they are excluded. Audit log entries and
-// log entries from Amazon Web Services are never excluded.
+// stored in Logging. If your project receives a large volume of logs,
+// you might be able to use exclusions to reduce your chargeable logs.
+// Exclusions are processed after log sinks, so you can export log
+// entries before they are excluded. Audit log entries and log entries
+// from Amazon Web Services are never excluded.
 type LogExclusion struct {
 	// Description: Optional. A description of this exclusion.
 	Description string `json:"description,omitempty"`
@@ -1242,10 +1259,8 @@ type LogExclusion struct {
 	// entries to be excluded. By using the sample function, you can exclude
 	// less than 100% of the matching log entries. For example, the
 	// following filter matches 99% of low-severity log entries from load
-	// balancers:
-	// "resource.type=http_load_balancer severity<ERROR sample(insertId,
-	// 0.99)"
-	//
+	// balancers:"resource.type=http_load_balancer severity<ERROR
+	// sample(insertId, 0.99)"
 	Filter string `json:"filter,omitempty"`
 
 	// Name: Required. A client-assigned identifier, such as
@@ -1423,8 +1438,8 @@ type LogMetric struct {
 	// metric. The v2 format is used by default and cannot be changed.
 	//
 	// Possible values:
-	//   "V2" - Stackdriver Logging API v2.
-	//   "V1" - Stackdriver Logging API v1.
+	//   "V2" - Logging API v2.
+	//   "V1" - Logging API v1.
 	Version string `json:"version,omitempty"`
 
 	// ServerResponse contains the HTTP response code and headers from the
@@ -1525,14 +1540,14 @@ type LogSink struct {
 	StartTime string `json:"startTime,omitempty"`
 
 	// WriterIdentity: Output only. An IAM identity&mdash;a service account
-	// or group&mdash;under which Stackdriver Logging writes the exported
-	// log entries to the sink's destination. This field is set by
-	// sinks.create and sinks.update, based on the setting of
-	// unique_writer_identity in those methods.Until you grant this identity
-	// write-access to the destination, log entry exports from this sink
-	// will fail. For more information, see Granting access for a resource.
-	// Consult the destination service's documentation to determine the
-	// appropriate IAM roles to assign to the identity.
+	// or group&mdash;under which Logging writes the exported log entries to
+	// the sink's destination. This field is set by sinks.create and
+	// sinks.update, based on the setting of unique_writer_identity in those
+	// methods.Until you grant this identity write-access to the
+	// destination, log entry exports from this sink will fail. For more
+	// information, see Granting access for a resource. Consult the
+	// destination service's documentation to determine the appropriate IAM
+	// roles to assign to the identity.
 	WriterIdentity string `json:"writerIdentity,omitempty"`
 
 	// ServerResponse contains the HTTP response code and headers from the
@@ -1585,6 +1600,10 @@ type MetricDescriptor struct {
 	// failed.
 	Labels []*LabelDescriptor `json:"labels,omitempty"`
 
+	// Metadata: Optional. Metadata which can be used to guide usage of the
+	// metric.
+	Metadata *MetricDescriptorMetadata `json:"metadata,omitempty"`
+
 	// MetricKind: Whether the metric records instantaneous values, changes
 	// to a value, etc. Some combinations of metric_kind and value_type
 	// might not be supported.
@@ -1603,13 +1622,15 @@ type MetricDescriptor struct {
 	Name string `json:"name,omitempty"`
 
 	// Type: The metric type, including its DNS name prefix. The type is not
-	// URL-encoded. All user-defined custom metric types have the DNS name
-	// custom.googleapis.com. Metric types should use a natural hierarchical
-	// grouping. For
+	// URL-encoded. All user-defined metric types have the DNS name
+	// custom.googleapis.com or external.googleapis.com. Metric types should
+	// use a natural hierarchical grouping. For
 	// example:
 	// "custom.googleapis.com/invoice/paid/amount"
-	// "appengine.google
-	// apis.com/http/server/response_latencies"
+	// "external.googlea
+	// pis.com/prometheus/up"
+	// "appengine.googleapis.com/http/server/response_
+	// latencies"
 	//
 	Type string `json:"type,omitempty"`
 
@@ -1642,15 +1663,14 @@ type MetricDescriptor struct {
 	// Ki kibi (2**10)
 	// Mi mebi (2**20)
 	// Gi gibi (2**30)
-	// Ti tebi (2**40)GrammarThe grammar includes the dimensionless unit 1,
-	// such as 1/s.The grammar also includes these connectors:
+	// Ti tebi (2**40)GrammarThe grammar also includes these connectors:
 	// / division (as an infix operator, e.g. 1/s).
 	// . multiplication (as an infix operator, e.g. GBy.d)The grammar for a
 	// unit is as follows:
 	// Expression = Component { "." Component } { "/" Component }
 	// ;
 	//
-	// Component = [ PREFIX ] UNIT [ Annotation ]
+	// Component = ( [ PREFIX ] UNIT | "%" ) [ Annotation ]
 	//           | Annotation
 	//           | "1"
 	//           ;
@@ -1662,6 +1682,9 @@ type MetricDescriptor struct {
 	// By{transmitted}/s == By/s.
 	// NAME is a sequence of non-blank printable ASCII characters not
 	// containing '{' or '}'.
+	// 1 represents dimensionless value 1, such as in 1/s.
+	// % represents dimensionless value 1/100, and annotates values giving
+	// a percentage.
 	Unit string `json:"unit,omitempty"`
 
 	// ValueType: Whether the measurement is an integer, a floating-point
@@ -1699,6 +1722,76 @@ type MetricDescriptor struct {
 
 func (s *MetricDescriptor) MarshalJSON() ([]byte, error) {
 	type NoMethod MetricDescriptor
+	raw := NoMethod(*s)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
+}
+
+// MetricDescriptorMetadata: Additional annotations that can be used to
+// guide the usage of a metric.
+type MetricDescriptorMetadata struct {
+	// IngestDelay: The delay of data points caused by ingestion. Data
+	// points older than this age are guaranteed to be ingested and
+	// available to be read, excluding data loss due to errors.
+	IngestDelay string `json:"ingestDelay,omitempty"`
+
+	// LaunchStage: The launch stage of the metric definition.
+	//
+	// Possible values:
+	//   "LAUNCH_STAGE_UNSPECIFIED" - Do not use this default value.
+	//   "EARLY_ACCESS" - Early Access features are limited to a closed
+	// group of testers. To use these features, you must sign up in advance
+	// and sign a Trusted Tester agreement (which includes confidentiality
+	// provisions). These features may be unstable, changed in
+	// backward-incompatible ways, and are not guaranteed to be released.
+	//   "ALPHA" - Alpha is a limited availability test for releases before
+	// they are cleared for widespread use. By Alpha, all significant design
+	// issues are resolved and we are in the process of verifying
+	// functionality. Alpha customers need to apply for access, agree to
+	// applicable terms, and have their projects whitelisted. Alpha releases
+	// don’t have to be feature complete, no SLAs are provided, and there
+	// are no technical support obligations, but they will be far enough
+	// along that customers can actually use them in test environments or
+	// for limited-use tests -- just like they would in normal production
+	// cases.
+	//   "BETA" - Beta is the point at which we are ready to open a release
+	// for any customer to use. There are no SLA or technical support
+	// obligations in a Beta release. Products will be complete from a
+	// feature perspective, but may have some open outstanding issues. Beta
+	// releases are suitable for limited production use cases.
+	//   "GA" - GA features are open to all developers and are considered
+	// stable and fully qualified for production use.
+	//   "DEPRECATED" - Deprecated features are scheduled to be shut down
+	// and removed. For more information, see the “Deprecation Policy”
+	// section of our Terms of Service (https://cloud.google.com/terms/) and
+	// the Google Cloud Platform Subject to the Deprecation Policy
+	// (https://cloud.google.com/terms/deprecation) documentation.
+	LaunchStage string `json:"launchStage,omitempty"`
+
+	// SamplePeriod: The sampling period of metric data points. For metrics
+	// which are written periodically, consecutive data points are stored at
+	// this time interval, excluding data loss due to errors. Metrics with a
+	// higher granularity have a smaller sampling period.
+	SamplePeriod string `json:"samplePeriod,omitempty"`
+
+	// ForceSendFields is a list of field names (e.g. "IngestDelay") to
+	// unconditionally include in API requests. By default, fields with
+	// empty values are omitted from API requests. However, any non-pointer,
+	// non-interface field appearing in ForceSendFields will be sent to the
+	// server regardless of whether the field is empty or not. This may be
+	// used to include empty fields in Patch requests.
+	ForceSendFields []string `json:"-"`
+
+	// NullFields is a list of field names (e.g. "IngestDelay") to include
+	// in API requests with the JSON null value. By default, fields with
+	// empty values are omitted from API requests. However, any field with
+	// an empty value appearing in NullFields will be sent to the server as
+	// null. It is an error if a field in this list has a non-empty value.
+	// This may be used to include null fields in Patch requests.
+	NullFields []string `json:"-"`
+}
+
+func (s *MetricDescriptorMetadata) MarshalJSON() ([]byte, error) {
+	type NoMethod MetricDescriptorMetadata
 	raw := NoMethod(*s)
 	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
 }
@@ -1813,6 +1906,50 @@ func (s *MonitoredResourceDescriptor) MarshalJSON() ([]byte, error) {
 	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
 }
 
+// MonitoredResourceMetadata: Auxiliary metadata for a MonitoredResource
+// object. MonitoredResource objects contain the minimum set of
+// information to uniquely identify a monitored resource instance. There
+// is some other useful auxiliary metadata. Monitoring and Logging use
+// an ingestion pipeline to extract metadata for cloud resources of all
+// types, and store the metadata in this message.
+type MonitoredResourceMetadata struct {
+	// SystemLabels: Output only. Values for predefined system metadata
+	// labels. System labels are a kind of metadata extracted by Google,
+	// including "machine_image", "vpc", "subnet_id", "security_group",
+	// "name", etc. System label values can be only strings, Boolean values,
+	// or a list of strings. For example:
+	// { "name": "my-test-instance",
+	//   "security_group": ["a", "b", "c"],
+	//   "spot_instance": false }
+	//
+	SystemLabels googleapi.RawMessage `json:"systemLabels,omitempty"`
+
+	// UserLabels: Output only. A map of user-defined metadata labels.
+	UserLabels map[string]string `json:"userLabels,omitempty"`
+
+	// ForceSendFields is a list of field names (e.g. "SystemLabels") to
+	// unconditionally include in API requests. By default, fields with
+	// empty values are omitted from API requests. However, any non-pointer,
+	// non-interface field appearing in ForceSendFields will be sent to the
+	// server regardless of whether the field is empty or not. This may be
+	// used to include empty fields in Patch requests.
+	ForceSendFields []string `json:"-"`
+
+	// NullFields is a list of field names (e.g. "SystemLabels") to include
+	// in API requests with the JSON null value. By default, fields with
+	// empty values are omitted from API requests. However, any field with
+	// an empty value appearing in NullFields will be sent to the server as
+	// null. It is an error if a field in this list has a non-empty value.
+	// This may be used to include null fields in Patch requests.
+	NullFields []string `json:"-"`
+}
+
+func (s *MonitoredResourceMetadata) MarshalJSON() ([]byte, error) {
+	type NoMethod MonitoredResourceMetadata
+	raw := NoMethod(*s)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
+}
+
 // RequestLog: Complete log information about a single HTTP request to
 // an App Engine application.
 type RequestLog struct {
@@ -1922,6 +2059,10 @@ type RequestLog struct {
 
 	// TraceId: Stackdriver Trace identifier for this request.
 	TraceId string `json:"traceId,omitempty"`
+
+	// TraceSampled: If true, the value in the 'trace_id' field was sampled
+	// for storage in a trace backend.
+	TraceSampled bool `json:"traceSampled,omitempty"`
 
 	// UrlMapEntry: File or class that handled the request.
 	UrlMapEntry string `json:"urlMapEntry,omitempty"`
@@ -2050,24 +2191,29 @@ func (s *SourceReference) MarshalJSON() ([]byte, error) {
 
 // WriteLogEntriesRequest: The parameters to WriteLogEntries.
 type WriteLogEntriesRequest struct {
-	// Entries: Required. The log entries to send to Stackdriver Logging.
-	// The order of log entries in this list does not matter. Values
-	// supplied in this method's log_name, resource, and labels fields are
-	// copied into those log entries in this list that do not include values
-	// for their corresponding fields. For more information, see the
-	// LogEntry type.If the timestamp or insert_id fields are missing in log
-	// entries, then this method supplies the current time or a unique
-	// identifier, respectively. The supplied values are chosen so that,
-	// among the log entries that did not supply their own values, the
-	// entries earlier in the list will sort before the entries later in the
-	// list. See the entries.list method.Log entries with timestamps that
-	// are more than the logs retention period in the past or more than 24
-	// hours in the future will not be available when calling entries.list.
-	// However, those log entries can still be exported with LogSinks.To
-	// improve throughput and to avoid exceeding the quota limit for calls
-	// to entries.write, you should try to include several log entries in
-	// this list, rather than calling this method for each individual log
-	// entry.
+	// DryRun: Optional. If true, the request should expect normal response,
+	// but the entries won't be persisted nor exported. Useful for checking
+	// whether the logging API endpoints are working properly before sending
+	// valuable data.
+	DryRun bool `json:"dryRun,omitempty"`
+
+	// Entries: Required. The log entries to send to Logging. The order of
+	// log entries in this list does not matter. Values supplied in this
+	// method's log_name, resource, and labels fields are copied into those
+	// log entries in this list that do not include values for their
+	// corresponding fields. For more information, see the LogEntry type.If
+	// the timestamp or insert_id fields are missing in log entries, then
+	// this method supplies the current time or a unique identifier,
+	// respectively. The supplied values are chosen so that, among the log
+	// entries that did not supply their own values, the entries earlier in
+	// the list will sort before the entries later in the list. See the
+	// entries.list method.Log entries with timestamps that are more than
+	// the logs retention period in the past or more than 24 hours in the
+	// future will not be available when calling entries.list. However,
+	// those log entries can still be exported with LogSinks.To improve
+	// throughput and to avoid exceeding the quota limit for calls to
+	// entries.write, you should try to include several log entries in this
+	// list, rather than calling this method for each individual log entry.
 	Entries []*LogEntry `json:"entries,omitempty"`
 
 	// Labels: Optional. Default labels that are added to the labels field
@@ -2085,10 +2231,15 @@ type WriteLogEntriesRequest struct {
 	// "billingAccounts/[BILLING_ACCOUNT_ID]/logs/[
 	// LOG_ID]"
 	// "folders/[FOLDER_ID]/logs/[LOG_ID]"
-	// [LOG_ID] must be URL-encoded. For example,
-	// "projects/my-project-id/logs/syslog" or
-	// "organizations/1234567890/logs/cloudresourcemanager.googleapis.com%2Fa
-	// ctivity". For more information about log names, see LogEntry.
+	// [LOG_ID] must be URL-encoded. For
+	// example:
+	// "projects/my-project-id/logs/syslog"
+	// "organizations/123456789
+	// 0/logs/cloudresourcemanager.googleapis.com%2Factivity"
+	// The permission <code>logging.logEntries.create</code> is needed on
+	// each project, organization, billing account, or folder that is
+	// receiving new log entries, whether the resource is specified in
+	// <code>logName</code> or in an individual log entry.
 	LogName string `json:"logName,omitempty"`
 
 	// PartialSuccess: Optional. Whether valid entries should be written
@@ -2109,7 +2260,7 @@ type WriteLogEntriesRequest struct {
 	// See LogEntry.
 	Resource *MonitoredResource `json:"resource,omitempty"`
 
-	// ForceSendFields is a list of field names (e.g. "Entries") to
+	// ForceSendFields is a list of field names (e.g. "DryRun") to
 	// unconditionally include in API requests. By default, fields with
 	// empty values are omitted from API requests. However, any non-pointer,
 	// non-interface field appearing in ForceSendFields will be sent to the
@@ -2117,8 +2268,8 @@ type WriteLogEntriesRequest struct {
 	// used to include empty fields in Patch requests.
 	ForceSendFields []string `json:"-"`
 
-	// NullFields is a list of field names (e.g. "Entries") to include in
-	// API requests with the JSON null value. By default, fields with empty
+	// NullFields is a list of field names (e.g. "DryRun") to include in API
+	// requests with the JSON null value. By default, fields with empty
 	// values are omitted from API requests. However, any field with an
 	// empty value appearing in NullFields will be sent to the server as
 	// null. It is an error if a field in this list has a non-empty value.
@@ -2198,6 +2349,7 @@ func (c *BillingAccountsExclusionsCreateCall) doRequest(alt string) (*http.Respo
 	}
 	reqHeaders.Set("Content-Type", "application/json")
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "v2/{+parent}/exclusions")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("POST", urls, body)
@@ -2327,6 +2479,7 @@ func (c *BillingAccountsExclusionsDeleteCall) doRequest(alt string) (*http.Respo
 	reqHeaders.Set("User-Agent", c.s.userAgent())
 	var body io.Reader = nil
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "v2/{+name}")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("DELETE", urls, body)
@@ -2467,6 +2620,7 @@ func (c *BillingAccountsExclusionsGetCall) doRequest(alt string) (*http.Response
 	}
 	var body io.Reader = nil
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "v2/{+name}")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("GET", urls, body)
@@ -2628,6 +2782,7 @@ func (c *BillingAccountsExclusionsListCall) doRequest(alt string) (*http.Respons
 	}
 	var body io.Reader = nil
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "v2/{+parent}/exclusions")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("GET", urls, body)
@@ -2807,6 +2962,7 @@ func (c *BillingAccountsExclusionsPatchCall) doRequest(alt string) (*http.Respon
 	}
 	reqHeaders.Set("Content-Type", "application/json")
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "v2/{+name}")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("PATCH", urls, body)
@@ -2944,6 +3100,7 @@ func (c *BillingAccountsLogsDeleteCall) doRequest(alt string) (*http.Response, e
 	reqHeaders.Set("User-Agent", c.s.userAgent())
 	var body io.Reader = nil
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "v2/{+logName}")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("DELETE", urls, body)
@@ -3104,6 +3261,7 @@ func (c *BillingAccountsLogsListCall) doRequest(alt string) (*http.Response, err
 	}
 	var body io.Reader = nil
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "v2/{+parent}/logs")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("GET", urls, body)
@@ -3242,13 +3400,12 @@ func (r *BillingAccountsSinksService) Create(parent string, logsink *LogSink) *B
 // as writer_identity in the new sink. If this value is omitted or set
 // to false, and if the sink's parent is a project, then the value
 // returned as writer_identity is the same group or service account used
-// by Stackdriver Logging before the addition of writer identities to
-// this API. The sink's destination must be in the same project as the
-// sink itself.If this field is set to true, or if the sink is owned by
-// a non-project resource such as an organization, then the value of
-// writer_identity will be a unique service account used only for
-// exports from the new sink. For more information, see writer_identity
-// in LogSink.
+// by Logging before the addition of writer identities to this API. The
+// sink's destination must be in the same project as the sink itself.If
+// this field is set to true, or if the sink is owned by a non-project
+// resource such as an organization, then the value of writer_identity
+// will be a unique service account used only for exports from the new
+// sink. For more information, see writer_identity in LogSink.
 func (c *BillingAccountsSinksCreateCall) UniqueWriterIdentity(uniqueWriterIdentity bool) *BillingAccountsSinksCreateCall {
 	c.urlParams_.Set("uniqueWriterIdentity", fmt.Sprint(uniqueWriterIdentity))
 	return c
@@ -3292,6 +3449,7 @@ func (c *BillingAccountsSinksCreateCall) doRequest(alt string) (*http.Response, 
 	}
 	reqHeaders.Set("Content-Type", "application/json")
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "v2/{+parent}/sinks")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("POST", urls, body)
@@ -3356,7 +3514,7 @@ func (c *BillingAccountsSinksCreateCall) Do(opts ...googleapi.CallOption) (*LogS
 	//       "type": "string"
 	//     },
 	//     "uniqueWriterIdentity": {
-	//       "description": "Optional. Determines the kind of IAM identity returned as writer_identity in the new sink. If this value is omitted or set to false, and if the sink's parent is a project, then the value returned as writer_identity is the same group or service account used by Stackdriver Logging before the addition of writer identities to this API. The sink's destination must be in the same project as the sink itself.If this field is set to true, or if the sink is owned by a non-project resource such as an organization, then the value of writer_identity will be a unique service account used only for exports from the new sink. For more information, see writer_identity in LogSink.",
+	//       "description": "Optional. Determines the kind of IAM identity returned as writer_identity in the new sink. If this value is omitted or set to false, and if the sink's parent is a project, then the value returned as writer_identity is the same group or service account used by Logging before the addition of writer identities to this API. The sink's destination must be in the same project as the sink itself.If this field is set to true, or if the sink is owned by a non-project resource such as an organization, then the value of writer_identity will be a unique service account used only for exports from the new sink. For more information, see writer_identity in LogSink.",
 	//       "location": "query",
 	//       "type": "boolean"
 	//     }
@@ -3427,6 +3585,7 @@ func (c *BillingAccountsSinksDeleteCall) doRequest(alt string) (*http.Response, 
 	reqHeaders.Set("User-Agent", c.s.userAgent())
 	var body io.Reader = nil
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "v2/{+sinkName}")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("DELETE", urls, body)
@@ -3567,6 +3726,7 @@ func (c *BillingAccountsSinksGetCall) doRequest(alt string) (*http.Response, err
 	}
 	var body io.Reader = nil
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "v2/{+sinkName}")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("GET", urls, body)
@@ -3728,6 +3888,7 @@ func (c *BillingAccountsSinksListCall) doRequest(alt string) (*http.Response, er
 	}
 	var body io.Reader = nil
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "v2/{+parent}/sinks")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("GET", urls, body)
@@ -3884,7 +4045,7 @@ func (c *BillingAccountsSinksPatchCall) UniqueWriterIdentity(uniqueWriterIdentit
 // compatibility purposes:  destination,filter,includeChildren At some
 // point in the future, behavior will be removed and specifying an empty
 // updateMask will be an error.For a detailed FieldMask definition, see
-// https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#fieldmaskExample:
+// https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#google.protobuf.FieldMaskExample:
 // updateMask=filter.
 func (c *BillingAccountsSinksPatchCall) UpdateMask(updateMask string) *BillingAccountsSinksPatchCall {
 	c.urlParams_.Set("updateMask", updateMask)
@@ -3929,6 +4090,7 @@ func (c *BillingAccountsSinksPatchCall) doRequest(alt string) (*http.Response, e
 	}
 	reqHeaders.Set("Content-Type", "application/json")
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "v2/{+sinkName}")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("PATCH", urls, body)
@@ -3998,7 +4160,7 @@ func (c *BillingAccountsSinksPatchCall) Do(opts ...googleapi.CallOption) (*LogSi
 	//       "type": "boolean"
 	//     },
 	//     "updateMask": {
-	//       "description": "Optional. Field mask that specifies the fields in sink that need an update. A sink field will be overwritten if, and only if, it is in the update mask. name and output only fields cannot be updated.An empty updateMask is temporarily treated as using the following mask for backwards compatibility purposes:  destination,filter,includeChildren At some point in the future, behavior will be removed and specifying an empty updateMask will be an error.For a detailed FieldMask definition, see https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#fieldmaskExample: updateMask=filter.",
+	//       "description": "Optional. Field mask that specifies the fields in sink that need an update. A sink field will be overwritten if, and only if, it is in the update mask. name and output only fields cannot be updated.An empty updateMask is temporarily treated as using the following mask for backwards compatibility purposes:  destination,filter,includeChildren At some point in the future, behavior will be removed and specifying an empty updateMask will be an error.For a detailed FieldMask definition, see https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#google.protobuf.FieldMaskExample: updateMask=filter.",
 	//       "format": "google-fieldmask",
 	//       "location": "query",
 	//       "type": "string"
@@ -4065,7 +4227,7 @@ func (c *BillingAccountsSinksUpdateCall) UniqueWriterIdentity(uniqueWriterIdenti
 // compatibility purposes:  destination,filter,includeChildren At some
 // point in the future, behavior will be removed and specifying an empty
 // updateMask will be an error.For a detailed FieldMask definition, see
-// https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#fieldmaskExample:
+// https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#google.protobuf.FieldMaskExample:
 // updateMask=filter.
 func (c *BillingAccountsSinksUpdateCall) UpdateMask(updateMask string) *BillingAccountsSinksUpdateCall {
 	c.urlParams_.Set("updateMask", updateMask)
@@ -4110,6 +4272,7 @@ func (c *BillingAccountsSinksUpdateCall) doRequest(alt string) (*http.Response, 
 	}
 	reqHeaders.Set("Content-Type", "application/json")
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "v2/{+sinkName}")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("PUT", urls, body)
@@ -4179,7 +4342,7 @@ func (c *BillingAccountsSinksUpdateCall) Do(opts ...googleapi.CallOption) (*LogS
 	//       "type": "boolean"
 	//     },
 	//     "updateMask": {
-	//       "description": "Optional. Field mask that specifies the fields in sink that need an update. A sink field will be overwritten if, and only if, it is in the update mask. name and output only fields cannot be updated.An empty updateMask is temporarily treated as using the following mask for backwards compatibility purposes:  destination,filter,includeChildren At some point in the future, behavior will be removed and specifying an empty updateMask will be an error.For a detailed FieldMask definition, see https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#fieldmaskExample: updateMask=filter.",
+	//       "description": "Optional. Field mask that specifies the fields in sink that need an update. A sink field will be overwritten if, and only if, it is in the update mask. name and output only fields cannot be updated.An empty updateMask is temporarily treated as using the following mask for backwards compatibility purposes:  destination,filter,includeChildren At some point in the future, behavior will be removed and specifying an empty updateMask will be an error.For a detailed FieldMask definition, see https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#google.protobuf.FieldMaskExample: updateMask=filter.",
 	//       "format": "google-fieldmask",
 	//       "location": "query",
 	//       "type": "string"
@@ -4211,8 +4374,7 @@ type EntriesListCall struct {
 }
 
 // List: Lists log entries. Use this method to retrieve log entries from
-// Stackdriver Logging. For ways to export log entries, see Exporting
-// Logs.
+// Logging. For ways to export log entries, see Exporting Logs.
 func (r *EntriesService) List(listlogentriesrequest *ListLogEntriesRequest) *EntriesListCall {
 	c := &EntriesListCall{s: r.s, urlParams_: make(gensupport.URLParams)}
 	c.listlogentriesrequest = listlogentriesrequest
@@ -4257,6 +4419,7 @@ func (c *EntriesListCall) doRequest(alt string) (*http.Response, error) {
 	}
 	reqHeaders.Set("Content-Type", "application/json")
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "v2/entries:list")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("POST", urls, body)
@@ -4302,7 +4465,7 @@ func (c *EntriesListCall) Do(opts ...googleapi.CallOption) (*ListLogEntriesRespo
 	}
 	return ret, nil
 	// {
-	//   "description": "Lists log entries. Use this method to retrieve log entries from Stackdriver Logging. For ways to export log entries, see Exporting Logs.",
+	//   "description": "Lists log entries. Use this method to retrieve log entries from Logging. For ways to export log entries, see Exporting Logs.",
 	//   "flatPath": "v2/entries:list",
 	//   "httpMethod": "POST",
 	//   "id": "logging.entries.list",
@@ -4356,11 +4519,12 @@ type EntriesWriteCall struct {
 	header_                http.Header
 }
 
-// Write: Log entry resourcesWrites log entries to Stackdriver Logging.
-// This API method is the only way to send log entries to Stackdriver
-// Logging. This method is used, directly or indirectly, by the
-// Stackdriver Logging agent (fluentd) and all logging libraries
-// configured to use Stackdriver Logging.
+// Write: Writes log entries to Logging. This API method is the only way
+// to send log entries to Logging. This method is used, directly or
+// indirectly, by the Logging agent (fluentd) and all logging libraries
+// configured to use Logging. A single request may contain log entries
+// for a maximum of 1000 different resources (projects, organizations,
+// billing accounts or folders)
 func (r *EntriesService) Write(writelogentriesrequest *WriteLogEntriesRequest) *EntriesWriteCall {
 	c := &EntriesWriteCall{s: r.s, urlParams_: make(gensupport.URLParams)}
 	c.writelogentriesrequest = writelogentriesrequest
@@ -4405,6 +4569,7 @@ func (c *EntriesWriteCall) doRequest(alt string) (*http.Response, error) {
 	}
 	reqHeaders.Set("Content-Type", "application/json")
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "v2/entries:write")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("POST", urls, body)
@@ -4450,7 +4615,7 @@ func (c *EntriesWriteCall) Do(opts ...googleapi.CallOption) (*WriteLogEntriesRes
 	}
 	return ret, nil
 	// {
-	//   "description": "Log entry resourcesWrites log entries to Stackdriver Logging. This API method is the only way to send log entries to Stackdriver Logging. This method is used, directly or indirectly, by the Stackdriver Logging agent (fluentd) and all logging libraries configured to use Stackdriver Logging.",
+	//   "description": "Writes log entries to Logging. This API method is the only way to send log entries to Logging. This method is used, directly or indirectly, by the Logging agent (fluentd) and all logging libraries configured to use Logging. A single request may contain log entries for a maximum of 1000 different resources (projects, organizations, billing accounts or folders)",
 	//   "flatPath": "v2/entries:write",
 	//   "httpMethod": "POST",
 	//   "id": "logging.entries.write",
@@ -4531,6 +4696,7 @@ func (c *ExclusionsCreateCall) doRequest(alt string) (*http.Response, error) {
 	}
 	reqHeaders.Set("Content-Type", "application/json")
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "v2/{+parent}/exclusions")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("POST", urls, body)
@@ -4660,6 +4826,7 @@ func (c *ExclusionsDeleteCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders.Set("User-Agent", c.s.userAgent())
 	var body io.Reader = nil
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "v2/{+name}")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("DELETE", urls, body)
@@ -4800,6 +4967,7 @@ func (c *ExclusionsGetCall) doRequest(alt string) (*http.Response, error) {
 	}
 	var body io.Reader = nil
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "v2/{+name}")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("GET", urls, body)
@@ -4961,6 +5129,7 @@ func (c *ExclusionsListCall) doRequest(alt string) (*http.Response, error) {
 	}
 	var body io.Reader = nil
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "v2/{+parent}/exclusions")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("GET", urls, body)
@@ -5140,6 +5309,7 @@ func (c *ExclusionsPatchCall) doRequest(alt string) (*http.Response, error) {
 	}
 	reqHeaders.Set("Content-Type", "application/json")
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "v2/{+name}")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("PATCH", urls, body)
@@ -5284,6 +5454,7 @@ func (c *FoldersExclusionsCreateCall) doRequest(alt string) (*http.Response, err
 	}
 	reqHeaders.Set("Content-Type", "application/json")
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "v2/{+parent}/exclusions")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("POST", urls, body)
@@ -5413,6 +5584,7 @@ func (c *FoldersExclusionsDeleteCall) doRequest(alt string) (*http.Response, err
 	reqHeaders.Set("User-Agent", c.s.userAgent())
 	var body io.Reader = nil
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "v2/{+name}")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("DELETE", urls, body)
@@ -5553,6 +5725,7 @@ func (c *FoldersExclusionsGetCall) doRequest(alt string) (*http.Response, error)
 	}
 	var body io.Reader = nil
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "v2/{+name}")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("GET", urls, body)
@@ -5714,6 +5887,7 @@ func (c *FoldersExclusionsListCall) doRequest(alt string) (*http.Response, error
 	}
 	var body io.Reader = nil
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "v2/{+parent}/exclusions")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("GET", urls, body)
@@ -5893,6 +6067,7 @@ func (c *FoldersExclusionsPatchCall) doRequest(alt string) (*http.Response, erro
 	}
 	reqHeaders.Set("Content-Type", "application/json")
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "v2/{+name}")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("PATCH", urls, body)
@@ -6030,6 +6205,7 @@ func (c *FoldersLogsDeleteCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders.Set("User-Agent", c.s.userAgent())
 	var body io.Reader = nil
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "v2/{+logName}")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("DELETE", urls, body)
@@ -6190,6 +6366,7 @@ func (c *FoldersLogsListCall) doRequest(alt string) (*http.Response, error) {
 	}
 	var body io.Reader = nil
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "v2/{+parent}/logs")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("GET", urls, body)
@@ -6328,13 +6505,12 @@ func (r *FoldersSinksService) Create(parent string, logsink *LogSink) *FoldersSi
 // as writer_identity in the new sink. If this value is omitted or set
 // to false, and if the sink's parent is a project, then the value
 // returned as writer_identity is the same group or service account used
-// by Stackdriver Logging before the addition of writer identities to
-// this API. The sink's destination must be in the same project as the
-// sink itself.If this field is set to true, or if the sink is owned by
-// a non-project resource such as an organization, then the value of
-// writer_identity will be a unique service account used only for
-// exports from the new sink. For more information, see writer_identity
-// in LogSink.
+// by Logging before the addition of writer identities to this API. The
+// sink's destination must be in the same project as the sink itself.If
+// this field is set to true, or if the sink is owned by a non-project
+// resource such as an organization, then the value of writer_identity
+// will be a unique service account used only for exports from the new
+// sink. For more information, see writer_identity in LogSink.
 func (c *FoldersSinksCreateCall) UniqueWriterIdentity(uniqueWriterIdentity bool) *FoldersSinksCreateCall {
 	c.urlParams_.Set("uniqueWriterIdentity", fmt.Sprint(uniqueWriterIdentity))
 	return c
@@ -6378,6 +6554,7 @@ func (c *FoldersSinksCreateCall) doRequest(alt string) (*http.Response, error) {
 	}
 	reqHeaders.Set("Content-Type", "application/json")
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "v2/{+parent}/sinks")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("POST", urls, body)
@@ -6442,7 +6619,7 @@ func (c *FoldersSinksCreateCall) Do(opts ...googleapi.CallOption) (*LogSink, err
 	//       "type": "string"
 	//     },
 	//     "uniqueWriterIdentity": {
-	//       "description": "Optional. Determines the kind of IAM identity returned as writer_identity in the new sink. If this value is omitted or set to false, and if the sink's parent is a project, then the value returned as writer_identity is the same group or service account used by Stackdriver Logging before the addition of writer identities to this API. The sink's destination must be in the same project as the sink itself.If this field is set to true, or if the sink is owned by a non-project resource such as an organization, then the value of writer_identity will be a unique service account used only for exports from the new sink. For more information, see writer_identity in LogSink.",
+	//       "description": "Optional. Determines the kind of IAM identity returned as writer_identity in the new sink. If this value is omitted or set to false, and if the sink's parent is a project, then the value returned as writer_identity is the same group or service account used by Logging before the addition of writer identities to this API. The sink's destination must be in the same project as the sink itself.If this field is set to true, or if the sink is owned by a non-project resource such as an organization, then the value of writer_identity will be a unique service account used only for exports from the new sink. For more information, see writer_identity in LogSink.",
 	//       "location": "query",
 	//       "type": "boolean"
 	//     }
@@ -6513,6 +6690,7 @@ func (c *FoldersSinksDeleteCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders.Set("User-Agent", c.s.userAgent())
 	var body io.Reader = nil
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "v2/{+sinkName}")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("DELETE", urls, body)
@@ -6653,6 +6831,7 @@ func (c *FoldersSinksGetCall) doRequest(alt string) (*http.Response, error) {
 	}
 	var body io.Reader = nil
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "v2/{+sinkName}")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("GET", urls, body)
@@ -6814,6 +6993,7 @@ func (c *FoldersSinksListCall) doRequest(alt string) (*http.Response, error) {
 	}
 	var body io.Reader = nil
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "v2/{+parent}/sinks")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("GET", urls, body)
@@ -6970,7 +7150,7 @@ func (c *FoldersSinksPatchCall) UniqueWriterIdentity(uniqueWriterIdentity bool) 
 // compatibility purposes:  destination,filter,includeChildren At some
 // point in the future, behavior will be removed and specifying an empty
 // updateMask will be an error.For a detailed FieldMask definition, see
-// https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#fieldmaskExample:
+// https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#google.protobuf.FieldMaskExample:
 // updateMask=filter.
 func (c *FoldersSinksPatchCall) UpdateMask(updateMask string) *FoldersSinksPatchCall {
 	c.urlParams_.Set("updateMask", updateMask)
@@ -7015,6 +7195,7 @@ func (c *FoldersSinksPatchCall) doRequest(alt string) (*http.Response, error) {
 	}
 	reqHeaders.Set("Content-Type", "application/json")
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "v2/{+sinkName}")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("PATCH", urls, body)
@@ -7084,7 +7265,7 @@ func (c *FoldersSinksPatchCall) Do(opts ...googleapi.CallOption) (*LogSink, erro
 	//       "type": "boolean"
 	//     },
 	//     "updateMask": {
-	//       "description": "Optional. Field mask that specifies the fields in sink that need an update. A sink field will be overwritten if, and only if, it is in the update mask. name and output only fields cannot be updated.An empty updateMask is temporarily treated as using the following mask for backwards compatibility purposes:  destination,filter,includeChildren At some point in the future, behavior will be removed and specifying an empty updateMask will be an error.For a detailed FieldMask definition, see https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#fieldmaskExample: updateMask=filter.",
+	//       "description": "Optional. Field mask that specifies the fields in sink that need an update. A sink field will be overwritten if, and only if, it is in the update mask. name and output only fields cannot be updated.An empty updateMask is temporarily treated as using the following mask for backwards compatibility purposes:  destination,filter,includeChildren At some point in the future, behavior will be removed and specifying an empty updateMask will be an error.For a detailed FieldMask definition, see https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#google.protobuf.FieldMaskExample: updateMask=filter.",
 	//       "format": "google-fieldmask",
 	//       "location": "query",
 	//       "type": "string"
@@ -7151,7 +7332,7 @@ func (c *FoldersSinksUpdateCall) UniqueWriterIdentity(uniqueWriterIdentity bool)
 // compatibility purposes:  destination,filter,includeChildren At some
 // point in the future, behavior will be removed and specifying an empty
 // updateMask will be an error.For a detailed FieldMask definition, see
-// https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#fieldmaskExample:
+// https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#google.protobuf.FieldMaskExample:
 // updateMask=filter.
 func (c *FoldersSinksUpdateCall) UpdateMask(updateMask string) *FoldersSinksUpdateCall {
 	c.urlParams_.Set("updateMask", updateMask)
@@ -7196,6 +7377,7 @@ func (c *FoldersSinksUpdateCall) doRequest(alt string) (*http.Response, error) {
 	}
 	reqHeaders.Set("Content-Type", "application/json")
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "v2/{+sinkName}")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("PUT", urls, body)
@@ -7265,7 +7447,7 @@ func (c *FoldersSinksUpdateCall) Do(opts ...googleapi.CallOption) (*LogSink, err
 	//       "type": "boolean"
 	//     },
 	//     "updateMask": {
-	//       "description": "Optional. Field mask that specifies the fields in sink that need an update. A sink field will be overwritten if, and only if, it is in the update mask. name and output only fields cannot be updated.An empty updateMask is temporarily treated as using the following mask for backwards compatibility purposes:  destination,filter,includeChildren At some point in the future, behavior will be removed and specifying an empty updateMask will be an error.For a detailed FieldMask definition, see https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#fieldmaskExample: updateMask=filter.",
+	//       "description": "Optional. Field mask that specifies the fields in sink that need an update. A sink field will be overwritten if, and only if, it is in the update mask. name and output only fields cannot be updated.An empty updateMask is temporarily treated as using the following mask for backwards compatibility purposes:  destination,filter,includeChildren At some point in the future, behavior will be removed and specifying an empty updateMask will be an error.For a detailed FieldMask definition, see https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#google.protobuf.FieldMaskExample: updateMask=filter.",
 	//       "format": "google-fieldmask",
 	//       "location": "query",
 	//       "type": "string"
@@ -7338,6 +7520,7 @@ func (c *LogsDeleteCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders.Set("User-Agent", c.s.userAgent())
 	var body io.Reader = nil
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "v2/{+logName}")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("DELETE", urls, body)
@@ -7498,6 +7681,7 @@ func (c *LogsListCall) doRequest(alt string) (*http.Response, error) {
 	}
 	var body io.Reader = nil
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "v2/{+parent}/logs")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("GET", urls, body)
@@ -7619,7 +7803,7 @@ type MonitoredResourceDescriptorsListCall struct {
 }
 
 // List: Lists the descriptors for monitored resource types used by
-// Stackdriver Logging.
+// Logging.
 func (r *MonitoredResourceDescriptorsService) List() *MonitoredResourceDescriptorsListCall {
 	c := &MonitoredResourceDescriptorsListCall{s: r.s, urlParams_: make(gensupport.URLParams)}
 	return c
@@ -7690,6 +7874,7 @@ func (c *MonitoredResourceDescriptorsListCall) doRequest(alt string) (*http.Resp
 	}
 	var body io.Reader = nil
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "v2/monitoredResourceDescriptors")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("GET", urls, body)
@@ -7737,7 +7922,7 @@ func (c *MonitoredResourceDescriptorsListCall) Do(opts ...googleapi.CallOption) 
 	}
 	return ret, nil
 	// {
-	//   "description": "Lists the descriptors for monitored resource types used by Stackdriver Logging.",
+	//   "description": "Lists the descriptors for monitored resource types used by Logging.",
 	//   "flatPath": "v2/monitoredResourceDescriptors",
 	//   "httpMethod": "GET",
 	//   "id": "logging.monitoredResourceDescriptors.list",
@@ -7849,6 +8034,7 @@ func (c *OrganizationsExclusionsCreateCall) doRequest(alt string) (*http.Respons
 	}
 	reqHeaders.Set("Content-Type", "application/json")
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "v2/{+parent}/exclusions")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("POST", urls, body)
@@ -7978,6 +8164,7 @@ func (c *OrganizationsExclusionsDeleteCall) doRequest(alt string) (*http.Respons
 	reqHeaders.Set("User-Agent", c.s.userAgent())
 	var body io.Reader = nil
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "v2/{+name}")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("DELETE", urls, body)
@@ -8118,6 +8305,7 @@ func (c *OrganizationsExclusionsGetCall) doRequest(alt string) (*http.Response, 
 	}
 	var body io.Reader = nil
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "v2/{+name}")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("GET", urls, body)
@@ -8279,6 +8467,7 @@ func (c *OrganizationsExclusionsListCall) doRequest(alt string) (*http.Response,
 	}
 	var body io.Reader = nil
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "v2/{+parent}/exclusions")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("GET", urls, body)
@@ -8458,6 +8647,7 @@ func (c *OrganizationsExclusionsPatchCall) doRequest(alt string) (*http.Response
 	}
 	reqHeaders.Set("Content-Type", "application/json")
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "v2/{+name}")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("PATCH", urls, body)
@@ -8595,6 +8785,7 @@ func (c *OrganizationsLogsDeleteCall) doRequest(alt string) (*http.Response, err
 	reqHeaders.Set("User-Agent", c.s.userAgent())
 	var body io.Reader = nil
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "v2/{+logName}")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("DELETE", urls, body)
@@ -8755,6 +8946,7 @@ func (c *OrganizationsLogsListCall) doRequest(alt string) (*http.Response, error
 	}
 	var body io.Reader = nil
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "v2/{+parent}/logs")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("GET", urls, body)
@@ -8893,13 +9085,12 @@ func (r *OrganizationsSinksService) Create(parent string, logsink *LogSink) *Org
 // as writer_identity in the new sink. If this value is omitted or set
 // to false, and if the sink's parent is a project, then the value
 // returned as writer_identity is the same group or service account used
-// by Stackdriver Logging before the addition of writer identities to
-// this API. The sink's destination must be in the same project as the
-// sink itself.If this field is set to true, or if the sink is owned by
-// a non-project resource such as an organization, then the value of
-// writer_identity will be a unique service account used only for
-// exports from the new sink. For more information, see writer_identity
-// in LogSink.
+// by Logging before the addition of writer identities to this API. The
+// sink's destination must be in the same project as the sink itself.If
+// this field is set to true, or if the sink is owned by a non-project
+// resource such as an organization, then the value of writer_identity
+// will be a unique service account used only for exports from the new
+// sink. For more information, see writer_identity in LogSink.
 func (c *OrganizationsSinksCreateCall) UniqueWriterIdentity(uniqueWriterIdentity bool) *OrganizationsSinksCreateCall {
 	c.urlParams_.Set("uniqueWriterIdentity", fmt.Sprint(uniqueWriterIdentity))
 	return c
@@ -8943,6 +9134,7 @@ func (c *OrganizationsSinksCreateCall) doRequest(alt string) (*http.Response, er
 	}
 	reqHeaders.Set("Content-Type", "application/json")
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "v2/{+parent}/sinks")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("POST", urls, body)
@@ -9007,7 +9199,7 @@ func (c *OrganizationsSinksCreateCall) Do(opts ...googleapi.CallOption) (*LogSin
 	//       "type": "string"
 	//     },
 	//     "uniqueWriterIdentity": {
-	//       "description": "Optional. Determines the kind of IAM identity returned as writer_identity in the new sink. If this value is omitted or set to false, and if the sink's parent is a project, then the value returned as writer_identity is the same group or service account used by Stackdriver Logging before the addition of writer identities to this API. The sink's destination must be in the same project as the sink itself.If this field is set to true, or if the sink is owned by a non-project resource such as an organization, then the value of writer_identity will be a unique service account used only for exports from the new sink. For more information, see writer_identity in LogSink.",
+	//       "description": "Optional. Determines the kind of IAM identity returned as writer_identity in the new sink. If this value is omitted or set to false, and if the sink's parent is a project, then the value returned as writer_identity is the same group or service account used by Logging before the addition of writer identities to this API. The sink's destination must be in the same project as the sink itself.If this field is set to true, or if the sink is owned by a non-project resource such as an organization, then the value of writer_identity will be a unique service account used only for exports from the new sink. For more information, see writer_identity in LogSink.",
 	//       "location": "query",
 	//       "type": "boolean"
 	//     }
@@ -9078,6 +9270,7 @@ func (c *OrganizationsSinksDeleteCall) doRequest(alt string) (*http.Response, er
 	reqHeaders.Set("User-Agent", c.s.userAgent())
 	var body io.Reader = nil
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "v2/{+sinkName}")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("DELETE", urls, body)
@@ -9218,6 +9411,7 @@ func (c *OrganizationsSinksGetCall) doRequest(alt string) (*http.Response, error
 	}
 	var body io.Reader = nil
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "v2/{+sinkName}")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("GET", urls, body)
@@ -9379,6 +9573,7 @@ func (c *OrganizationsSinksListCall) doRequest(alt string) (*http.Response, erro
 	}
 	var body io.Reader = nil
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "v2/{+parent}/sinks")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("GET", urls, body)
@@ -9535,7 +9730,7 @@ func (c *OrganizationsSinksPatchCall) UniqueWriterIdentity(uniqueWriterIdentity 
 // compatibility purposes:  destination,filter,includeChildren At some
 // point in the future, behavior will be removed and specifying an empty
 // updateMask will be an error.For a detailed FieldMask definition, see
-// https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#fieldmaskExample:
+// https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#google.protobuf.FieldMaskExample:
 // updateMask=filter.
 func (c *OrganizationsSinksPatchCall) UpdateMask(updateMask string) *OrganizationsSinksPatchCall {
 	c.urlParams_.Set("updateMask", updateMask)
@@ -9580,6 +9775,7 @@ func (c *OrganizationsSinksPatchCall) doRequest(alt string) (*http.Response, err
 	}
 	reqHeaders.Set("Content-Type", "application/json")
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "v2/{+sinkName}")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("PATCH", urls, body)
@@ -9649,7 +9845,7 @@ func (c *OrganizationsSinksPatchCall) Do(opts ...googleapi.CallOption) (*LogSink
 	//       "type": "boolean"
 	//     },
 	//     "updateMask": {
-	//       "description": "Optional. Field mask that specifies the fields in sink that need an update. A sink field will be overwritten if, and only if, it is in the update mask. name and output only fields cannot be updated.An empty updateMask is temporarily treated as using the following mask for backwards compatibility purposes:  destination,filter,includeChildren At some point in the future, behavior will be removed and specifying an empty updateMask will be an error.For a detailed FieldMask definition, see https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#fieldmaskExample: updateMask=filter.",
+	//       "description": "Optional. Field mask that specifies the fields in sink that need an update. A sink field will be overwritten if, and only if, it is in the update mask. name and output only fields cannot be updated.An empty updateMask is temporarily treated as using the following mask for backwards compatibility purposes:  destination,filter,includeChildren At some point in the future, behavior will be removed and specifying an empty updateMask will be an error.For a detailed FieldMask definition, see https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#google.protobuf.FieldMaskExample: updateMask=filter.",
 	//       "format": "google-fieldmask",
 	//       "location": "query",
 	//       "type": "string"
@@ -9716,7 +9912,7 @@ func (c *OrganizationsSinksUpdateCall) UniqueWriterIdentity(uniqueWriterIdentity
 // compatibility purposes:  destination,filter,includeChildren At some
 // point in the future, behavior will be removed and specifying an empty
 // updateMask will be an error.For a detailed FieldMask definition, see
-// https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#fieldmaskExample:
+// https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#google.protobuf.FieldMaskExample:
 // updateMask=filter.
 func (c *OrganizationsSinksUpdateCall) UpdateMask(updateMask string) *OrganizationsSinksUpdateCall {
 	c.urlParams_.Set("updateMask", updateMask)
@@ -9761,6 +9957,7 @@ func (c *OrganizationsSinksUpdateCall) doRequest(alt string) (*http.Response, er
 	}
 	reqHeaders.Set("Content-Type", "application/json")
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "v2/{+sinkName}")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("PUT", urls, body)
@@ -9830,7 +10027,7 @@ func (c *OrganizationsSinksUpdateCall) Do(opts ...googleapi.CallOption) (*LogSin
 	//       "type": "boolean"
 	//     },
 	//     "updateMask": {
-	//       "description": "Optional. Field mask that specifies the fields in sink that need an update. A sink field will be overwritten if, and only if, it is in the update mask. name and output only fields cannot be updated.An empty updateMask is temporarily treated as using the following mask for backwards compatibility purposes:  destination,filter,includeChildren At some point in the future, behavior will be removed and specifying an empty updateMask will be an error.For a detailed FieldMask definition, see https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#fieldmaskExample: updateMask=filter.",
+	//       "description": "Optional. Field mask that specifies the fields in sink that need an update. A sink field will be overwritten if, and only if, it is in the update mask. name and output only fields cannot be updated.An empty updateMask is temporarily treated as using the following mask for backwards compatibility purposes:  destination,filter,includeChildren At some point in the future, behavior will be removed and specifying an empty updateMask will be an error.For a detailed FieldMask definition, see https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#google.protobuf.FieldMaskExample: updateMask=filter.",
 	//       "format": "google-fieldmask",
 	//       "location": "query",
 	//       "type": "string"
@@ -9910,6 +10107,7 @@ func (c *ProjectsExclusionsCreateCall) doRequest(alt string) (*http.Response, er
 	}
 	reqHeaders.Set("Content-Type", "application/json")
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "v2/{+parent}/exclusions")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("POST", urls, body)
@@ -10039,6 +10237,7 @@ func (c *ProjectsExclusionsDeleteCall) doRequest(alt string) (*http.Response, er
 	reqHeaders.Set("User-Agent", c.s.userAgent())
 	var body io.Reader = nil
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "v2/{+name}")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("DELETE", urls, body)
@@ -10179,6 +10378,7 @@ func (c *ProjectsExclusionsGetCall) doRequest(alt string) (*http.Response, error
 	}
 	var body io.Reader = nil
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "v2/{+name}")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("GET", urls, body)
@@ -10340,6 +10540,7 @@ func (c *ProjectsExclusionsListCall) doRequest(alt string) (*http.Response, erro
 	}
 	var body io.Reader = nil
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "v2/{+parent}/exclusions")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("GET", urls, body)
@@ -10519,6 +10720,7 @@ func (c *ProjectsExclusionsPatchCall) doRequest(alt string) (*http.Response, err
 	}
 	reqHeaders.Set("Content-Type", "application/json")
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "v2/{+name}")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("PATCH", urls, body)
@@ -10656,6 +10858,7 @@ func (c *ProjectsLogsDeleteCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders.Set("User-Agent", c.s.userAgent())
 	var body io.Reader = nil
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "v2/{+logName}")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("DELETE", urls, body)
@@ -10816,6 +11019,7 @@ func (c *ProjectsLogsListCall) doRequest(alt string) (*http.Response, error) {
 	}
 	var body io.Reader = nil
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "v2/{+parent}/logs")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("GET", urls, body)
@@ -10983,6 +11187,7 @@ func (c *ProjectsMetricsCreateCall) doRequest(alt string) (*http.Response, error
 	}
 	reqHeaders.Set("Content-Type", "application/json")
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "v2/{+parent}/metrics")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("POST", urls, body)
@@ -11113,6 +11318,7 @@ func (c *ProjectsMetricsDeleteCall) doRequest(alt string) (*http.Response, error
 	reqHeaders.Set("User-Agent", c.s.userAgent())
 	var body io.Reader = nil
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "v2/{+metricName}")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("DELETE", urls, body)
@@ -11254,6 +11460,7 @@ func (c *ProjectsMetricsGetCall) doRequest(alt string) (*http.Response, error) {
 	}
 	var body io.Reader = nil
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "v2/{+metricName}")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("GET", urls, body)
@@ -11415,6 +11622,7 @@ func (c *ProjectsMetricsListCall) doRequest(alt string) (*http.Response, error) 
 	}
 	var body io.Reader = nil
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "v2/{+parent}/metrics")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("GET", urls, body)
@@ -11582,6 +11790,7 @@ func (c *ProjectsMetricsUpdateCall) doRequest(alt string) (*http.Response, error
 	}
 	reqHeaders.Set("Content-Type", "application/json")
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "v2/{+metricName}")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("PUT", urls, body)
@@ -11690,13 +11899,12 @@ func (r *ProjectsSinksService) Create(parent string, logsink *LogSink) *Projects
 // as writer_identity in the new sink. If this value is omitted or set
 // to false, and if the sink's parent is a project, then the value
 // returned as writer_identity is the same group or service account used
-// by Stackdriver Logging before the addition of writer identities to
-// this API. The sink's destination must be in the same project as the
-// sink itself.If this field is set to true, or if the sink is owned by
-// a non-project resource such as an organization, then the value of
-// writer_identity will be a unique service account used only for
-// exports from the new sink. For more information, see writer_identity
-// in LogSink.
+// by Logging before the addition of writer identities to this API. The
+// sink's destination must be in the same project as the sink itself.If
+// this field is set to true, or if the sink is owned by a non-project
+// resource such as an organization, then the value of writer_identity
+// will be a unique service account used only for exports from the new
+// sink. For more information, see writer_identity in LogSink.
 func (c *ProjectsSinksCreateCall) UniqueWriterIdentity(uniqueWriterIdentity bool) *ProjectsSinksCreateCall {
 	c.urlParams_.Set("uniqueWriterIdentity", fmt.Sprint(uniqueWriterIdentity))
 	return c
@@ -11740,6 +11948,7 @@ func (c *ProjectsSinksCreateCall) doRequest(alt string) (*http.Response, error) 
 	}
 	reqHeaders.Set("Content-Type", "application/json")
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "v2/{+parent}/sinks")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("POST", urls, body)
@@ -11804,7 +12013,7 @@ func (c *ProjectsSinksCreateCall) Do(opts ...googleapi.CallOption) (*LogSink, er
 	//       "type": "string"
 	//     },
 	//     "uniqueWriterIdentity": {
-	//       "description": "Optional. Determines the kind of IAM identity returned as writer_identity in the new sink. If this value is omitted or set to false, and if the sink's parent is a project, then the value returned as writer_identity is the same group or service account used by Stackdriver Logging before the addition of writer identities to this API. The sink's destination must be in the same project as the sink itself.If this field is set to true, or if the sink is owned by a non-project resource such as an organization, then the value of writer_identity will be a unique service account used only for exports from the new sink. For more information, see writer_identity in LogSink.",
+	//       "description": "Optional. Determines the kind of IAM identity returned as writer_identity in the new sink. If this value is omitted or set to false, and if the sink's parent is a project, then the value returned as writer_identity is the same group or service account used by Logging before the addition of writer identities to this API. The sink's destination must be in the same project as the sink itself.If this field is set to true, or if the sink is owned by a non-project resource such as an organization, then the value of writer_identity will be a unique service account used only for exports from the new sink. For more information, see writer_identity in LogSink.",
 	//       "location": "query",
 	//       "type": "boolean"
 	//     }
@@ -11875,6 +12084,7 @@ func (c *ProjectsSinksDeleteCall) doRequest(alt string) (*http.Response, error) 
 	reqHeaders.Set("User-Agent", c.s.userAgent())
 	var body io.Reader = nil
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "v2/{+sinkName}")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("DELETE", urls, body)
@@ -12015,6 +12225,7 @@ func (c *ProjectsSinksGetCall) doRequest(alt string) (*http.Response, error) {
 	}
 	var body io.Reader = nil
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "v2/{+sinkName}")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("GET", urls, body)
@@ -12176,6 +12387,7 @@ func (c *ProjectsSinksListCall) doRequest(alt string) (*http.Response, error) {
 	}
 	var body io.Reader = nil
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "v2/{+parent}/sinks")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("GET", urls, body)
@@ -12332,7 +12544,7 @@ func (c *ProjectsSinksPatchCall) UniqueWriterIdentity(uniqueWriterIdentity bool)
 // compatibility purposes:  destination,filter,includeChildren At some
 // point in the future, behavior will be removed and specifying an empty
 // updateMask will be an error.For a detailed FieldMask definition, see
-// https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#fieldmaskExample:
+// https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#google.protobuf.FieldMaskExample:
 // updateMask=filter.
 func (c *ProjectsSinksPatchCall) UpdateMask(updateMask string) *ProjectsSinksPatchCall {
 	c.urlParams_.Set("updateMask", updateMask)
@@ -12377,6 +12589,7 @@ func (c *ProjectsSinksPatchCall) doRequest(alt string) (*http.Response, error) {
 	}
 	reqHeaders.Set("Content-Type", "application/json")
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "v2/{+sinkName}")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("PATCH", urls, body)
@@ -12446,7 +12659,7 @@ func (c *ProjectsSinksPatchCall) Do(opts ...googleapi.CallOption) (*LogSink, err
 	//       "type": "boolean"
 	//     },
 	//     "updateMask": {
-	//       "description": "Optional. Field mask that specifies the fields in sink that need an update. A sink field will be overwritten if, and only if, it is in the update mask. name and output only fields cannot be updated.An empty updateMask is temporarily treated as using the following mask for backwards compatibility purposes:  destination,filter,includeChildren At some point in the future, behavior will be removed and specifying an empty updateMask will be an error.For a detailed FieldMask definition, see https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#fieldmaskExample: updateMask=filter.",
+	//       "description": "Optional. Field mask that specifies the fields in sink that need an update. A sink field will be overwritten if, and only if, it is in the update mask. name and output only fields cannot be updated.An empty updateMask is temporarily treated as using the following mask for backwards compatibility purposes:  destination,filter,includeChildren At some point in the future, behavior will be removed and specifying an empty updateMask will be an error.For a detailed FieldMask definition, see https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#google.protobuf.FieldMaskExample: updateMask=filter.",
 	//       "format": "google-fieldmask",
 	//       "location": "query",
 	//       "type": "string"
@@ -12513,7 +12726,7 @@ func (c *ProjectsSinksUpdateCall) UniqueWriterIdentity(uniqueWriterIdentity bool
 // compatibility purposes:  destination,filter,includeChildren At some
 // point in the future, behavior will be removed and specifying an empty
 // updateMask will be an error.For a detailed FieldMask definition, see
-// https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#fieldmaskExample:
+// https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#google.protobuf.FieldMaskExample:
 // updateMask=filter.
 func (c *ProjectsSinksUpdateCall) UpdateMask(updateMask string) *ProjectsSinksUpdateCall {
 	c.urlParams_.Set("updateMask", updateMask)
@@ -12558,6 +12771,7 @@ func (c *ProjectsSinksUpdateCall) doRequest(alt string) (*http.Response, error) 
 	}
 	reqHeaders.Set("Content-Type", "application/json")
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "v2/{+sinkName}")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("PUT", urls, body)
@@ -12627,7 +12841,7 @@ func (c *ProjectsSinksUpdateCall) Do(opts ...googleapi.CallOption) (*LogSink, er
 	//       "type": "boolean"
 	//     },
 	//     "updateMask": {
-	//       "description": "Optional. Field mask that specifies the fields in sink that need an update. A sink field will be overwritten if, and only if, it is in the update mask. name and output only fields cannot be updated.An empty updateMask is temporarily treated as using the following mask for backwards compatibility purposes:  destination,filter,includeChildren At some point in the future, behavior will be removed and specifying an empty updateMask will be an error.For a detailed FieldMask definition, see https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#fieldmaskExample: updateMask=filter.",
+	//       "description": "Optional. Field mask that specifies the fields in sink that need an update. A sink field will be overwritten if, and only if, it is in the update mask. name and output only fields cannot be updated.An empty updateMask is temporarily treated as using the following mask for backwards compatibility purposes:  destination,filter,includeChildren At some point in the future, behavior will be removed and specifying an empty updateMask will be an error.For a detailed FieldMask definition, see https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#google.protobuf.FieldMaskExample: updateMask=filter.",
 	//       "format": "google-fieldmask",
 	//       "location": "query",
 	//       "type": "string"
@@ -12676,13 +12890,12 @@ func (r *SinksService) Create(parent string, logsink *LogSink) *SinksCreateCall 
 // as writer_identity in the new sink. If this value is omitted or set
 // to false, and if the sink's parent is a project, then the value
 // returned as writer_identity is the same group or service account used
-// by Stackdriver Logging before the addition of writer identities to
-// this API. The sink's destination must be in the same project as the
-// sink itself.If this field is set to true, or if the sink is owned by
-// a non-project resource such as an organization, then the value of
-// writer_identity will be a unique service account used only for
-// exports from the new sink. For more information, see writer_identity
-// in LogSink.
+// by Logging before the addition of writer identities to this API. The
+// sink's destination must be in the same project as the sink itself.If
+// this field is set to true, or if the sink is owned by a non-project
+// resource such as an organization, then the value of writer_identity
+// will be a unique service account used only for exports from the new
+// sink. For more information, see writer_identity in LogSink.
 func (c *SinksCreateCall) UniqueWriterIdentity(uniqueWriterIdentity bool) *SinksCreateCall {
 	c.urlParams_.Set("uniqueWriterIdentity", fmt.Sprint(uniqueWriterIdentity))
 	return c
@@ -12726,6 +12939,7 @@ func (c *SinksCreateCall) doRequest(alt string) (*http.Response, error) {
 	}
 	reqHeaders.Set("Content-Type", "application/json")
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "v2/{+parent}/sinks")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("POST", urls, body)
@@ -12790,7 +13004,7 @@ func (c *SinksCreateCall) Do(opts ...googleapi.CallOption) (*LogSink, error) {
 	//       "type": "string"
 	//     },
 	//     "uniqueWriterIdentity": {
-	//       "description": "Optional. Determines the kind of IAM identity returned as writer_identity in the new sink. If this value is omitted or set to false, and if the sink's parent is a project, then the value returned as writer_identity is the same group or service account used by Stackdriver Logging before the addition of writer identities to this API. The sink's destination must be in the same project as the sink itself.If this field is set to true, or if the sink is owned by a non-project resource such as an organization, then the value of writer_identity will be a unique service account used only for exports from the new sink. For more information, see writer_identity in LogSink.",
+	//       "description": "Optional. Determines the kind of IAM identity returned as writer_identity in the new sink. If this value is omitted or set to false, and if the sink's parent is a project, then the value returned as writer_identity is the same group or service account used by Logging before the addition of writer identities to this API. The sink's destination must be in the same project as the sink itself.If this field is set to true, or if the sink is owned by a non-project resource such as an organization, then the value of writer_identity will be a unique service account used only for exports from the new sink. For more information, see writer_identity in LogSink.",
 	//       "location": "query",
 	//       "type": "boolean"
 	//     }
@@ -12861,6 +13075,7 @@ func (c *SinksDeleteCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders.Set("User-Agent", c.s.userAgent())
 	var body io.Reader = nil
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "v2/{+sinkName}")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("DELETE", urls, body)
@@ -13001,6 +13216,7 @@ func (c *SinksGetCall) doRequest(alt string) (*http.Response, error) {
 	}
 	var body io.Reader = nil
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "v2/{+sinkName}")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("GET", urls, body)
@@ -13162,6 +13378,7 @@ func (c *SinksListCall) doRequest(alt string) (*http.Response, error) {
 	}
 	var body io.Reader = nil
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "v2/{+parent}/sinks")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("GET", urls, body)
@@ -13318,7 +13535,7 @@ func (c *SinksUpdateCall) UniqueWriterIdentity(uniqueWriterIdentity bool) *Sinks
 // compatibility purposes:  destination,filter,includeChildren At some
 // point in the future, behavior will be removed and specifying an empty
 // updateMask will be an error.For a detailed FieldMask definition, see
-// https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#fieldmaskExample:
+// https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#google.protobuf.FieldMaskExample:
 // updateMask=filter.
 func (c *SinksUpdateCall) UpdateMask(updateMask string) *SinksUpdateCall {
 	c.urlParams_.Set("updateMask", updateMask)
@@ -13363,6 +13580,7 @@ func (c *SinksUpdateCall) doRequest(alt string) (*http.Response, error) {
 	}
 	reqHeaders.Set("Content-Type", "application/json")
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "v2/{+sinkName}")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("PUT", urls, body)
@@ -13432,7 +13650,7 @@ func (c *SinksUpdateCall) Do(opts ...googleapi.CallOption) (*LogSink, error) {
 	//       "type": "boolean"
 	//     },
 	//     "updateMask": {
-	//       "description": "Optional. Field mask that specifies the fields in sink that need an update. A sink field will be overwritten if, and only if, it is in the update mask. name and output only fields cannot be updated.An empty updateMask is temporarily treated as using the following mask for backwards compatibility purposes:  destination,filter,includeChildren At some point in the future, behavior will be removed and specifying an empty updateMask will be an error.For a detailed FieldMask definition, see https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#fieldmaskExample: updateMask=filter.",
+	//       "description": "Optional. Field mask that specifies the fields in sink that need an update. A sink field will be overwritten if, and only if, it is in the update mask. name and output only fields cannot be updated.An empty updateMask is temporarily treated as using the following mask for backwards compatibility purposes:  destination,filter,includeChildren At some point in the future, behavior will be removed and specifying an empty updateMask will be an error.For a detailed FieldMask definition, see https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#google.protobuf.FieldMaskExample: updateMask=filter.",
 	//       "format": "google-fieldmask",
 	//       "location": "query",
 	//       "type": "string"

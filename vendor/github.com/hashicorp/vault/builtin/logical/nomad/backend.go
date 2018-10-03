@@ -1,19 +1,23 @@
 package nomad
 
 import (
+	"context"
+
 	"github.com/hashicorp/nomad/api"
 	"github.com/hashicorp/vault/logical"
 	"github.com/hashicorp/vault/logical/framework"
 )
 
-func Factory(conf *logical.BackendConfig) (logical.Backend, error) {
+// Factory returns a Nomad backend that satisfies the logical.Backend interface
+func Factory(ctx context.Context, conf *logical.BackendConfig) (logical.Backend, error) {
 	b := Backend()
-	if err := b.Setup(conf); err != nil {
+	if err := b.Setup(ctx, conf); err != nil {
 		return nil, err
 	}
 	return b, nil
 }
 
+// Backend returns the configured Nomad backend
 func Backend() *backend {
 	var b backend
 	b.Backend = &framework.Backend{
@@ -44,8 +48,8 @@ type backend struct {
 	*framework.Backend
 }
 
-func (b *backend) client(s logical.Storage) (*api.Client, error) {
-	conf, err := b.readConfigAccess(s)
+func (b *backend) client(ctx context.Context, s logical.Storage) (*api.Client, error) {
+	conf, err := b.readConfigAccess(ctx, s)
 	if err != nil {
 		return nil, err
 	}
@@ -64,5 +68,6 @@ func (b *backend) client(s logical.Storage) (*api.Client, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	return client, nil
 }

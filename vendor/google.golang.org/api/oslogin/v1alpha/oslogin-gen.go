@@ -1,4 +1,6 @@
-// Package oslogin provides access to the Google Cloud OS Login API.
+// Package oslogin provides access to the Cloud OS Login API.
+//
+// This package is DEPRECATED. Use package cloud.google.com/go/oslogin/apiv1 instead.
 //
 // See https://cloud.google.com/compute/docs/oslogin/rest/
 //
@@ -135,7 +137,7 @@ type Empty struct {
 	googleapi.ServerResponse `json:"-"`
 }
 
-// ImportSshPublicKeyResponse: A response message for importing an SSH
+// ImportSshPublicKeyResponse: A response message from importing an SSH
 // public key.
 type ImportSshPublicKeyResponse struct {
 	// LoginProfile: The login profile information for the user.
@@ -172,19 +174,15 @@ func (s *ImportSshPublicKeyResponse) MarshalJSON() ([]byte, error) {
 // virtual machine on
 // Google Compute Engine.
 type LoginProfile struct {
-	// Name: A unique user ID for identifying the user.
+	// Name: A unique user ID.
 	Name string `json:"name,omitempty"`
 
-	// PosixAccounts: The list of POSIX accounts associated with the
-	// Directory API user.
+	// PosixAccounts: The list of POSIX accounts associated with the user.
 	PosixAccounts []*PosixAccount `json:"posixAccounts,omitempty"`
 
 	// SshPublicKeys: A map from SSH public key fingerprint to the
 	// associated key object.
 	SshPublicKeys map[string]SshPublicKey `json:"sshPublicKeys,omitempty"`
-
-	// Suspended: Indicates if the user is suspended.
-	Suspended bool `json:"suspended,omitempty"`
 
 	// ServerResponse contains the HTTP response code and headers from the
 	// server.
@@ -227,6 +225,17 @@ type PosixAccount struct {
 
 	// HomeDirectory: The path to the home directory for this account.
 	HomeDirectory string `json:"homeDirectory,omitempty"`
+
+	// OperatingSystemType: The operating system type where this account
+	// applies.
+	//
+	// Possible values:
+	//   "OPERATING_SYSTEM_TYPE_UNSPECIFIED" - The operating system type
+	// associated with the user account information is
+	// unspecified.
+	//   "LINUX" - Linux user account information.
+	//   "WINDOWS" - Windows user account information.
+	OperatingSystemType string `json:"operatingSystemType,omitempty"`
 
 	// Primary: Only one POSIX account can be marked as primary.
 	Primary bool `json:"primary,omitempty"`
@@ -378,6 +387,7 @@ func (c *UsersGetLoginProfileCall) doRequest(alt string) (*http.Response, error)
 	}
 	var body io.Reader = nil
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "v1alpha/{+name}/loginProfile")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("GET", urls, body)
@@ -524,6 +534,7 @@ func (c *UsersImportSshPublicKeyCall) doRequest(alt string) (*http.Response, err
 	}
 	reqHeaders.Set("Content-Type", "application/json")
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "v1alpha/{+parent}:importSshPublicKey")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("POST", urls, body)
@@ -625,6 +636,19 @@ func (r *UsersProjectsService) Delete(name string) *UsersProjectsDeleteCall {
 	return c
 }
 
+// OperatingSystemType sets the optional parameter
+// "operatingSystemType": The type of operating system associated with
+// the account.
+//
+// Possible values:
+//   "OPERATING_SYSTEM_TYPE_UNSPECIFIED"
+//   "LINUX"
+//   "WINDOWS"
+func (c *UsersProjectsDeleteCall) OperatingSystemType(operatingSystemType string) *UsersProjectsDeleteCall {
+	c.urlParams_.Set("operatingSystemType", operatingSystemType)
+	return c
+}
+
 // Fields allows partial responses to be retrieved. See
 // https://developers.google.com/gdata/docs/2.0/basics#PartialResponse
 // for more information.
@@ -658,6 +682,7 @@ func (c *UsersProjectsDeleteCall) doRequest(alt string) (*http.Response, error) 
 	reqHeaders.Set("User-Agent", c.s.userAgent())
 	var body io.Reader = nil
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "v1alpha/{+name}")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("DELETE", urls, body)
@@ -719,6 +744,16 @@ func (c *UsersProjectsDeleteCall) Do(opts ...googleapi.CallOption) (*Empty, erro
 	//       "location": "path",
 	//       "pattern": "^users/[^/]+/projects/[^/]+$",
 	//       "required": true,
+	//       "type": "string"
+	//     },
+	//     "operatingSystemType": {
+	//       "description": "The type of operating system associated with the account.",
+	//       "enum": [
+	//         "OPERATING_SYSTEM_TYPE_UNSPECIFIED",
+	//         "LINUX",
+	//         "WINDOWS"
+	//       ],
+	//       "location": "query",
 	//       "type": "string"
 	//     }
 	//   },
@@ -784,6 +819,7 @@ func (c *UsersSshPublicKeysDeleteCall) doRequest(alt string) (*http.Response, er
 	reqHeaders.Set("User-Agent", c.s.userAgent())
 	var body io.Reader = nil
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "v1alpha/{+name}")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("DELETE", urls, body)
@@ -924,6 +960,7 @@ func (c *UsersSshPublicKeysGetCall) doRequest(alt string) (*http.Response, error
 	}
 	var body io.Reader = nil
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "v1alpha/{+name}")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("GET", urls, body)
@@ -1066,6 +1103,7 @@ func (c *UsersSshPublicKeysPatchCall) doRequest(alt string) (*http.Response, err
 	}
 	reqHeaders.Set("Content-Type", "application/json")
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "v1alpha/{+name}")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("PATCH", urls, body)

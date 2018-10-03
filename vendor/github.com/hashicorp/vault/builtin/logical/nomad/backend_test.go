@@ -1,6 +1,7 @@
 package nomad
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"reflect"
@@ -8,9 +9,10 @@ import (
 	"time"
 
 	nomadapi "github.com/hashicorp/nomad/api"
+	"github.com/hashicorp/vault/helper/testhelpers"
 	"github.com/hashicorp/vault/logical"
 	"github.com/mitchellh/mapstructure"
-	dockertest "gopkg.in/ory-am/dockertest.v3"
+	"github.com/ory/dockertest"
 )
 
 func prepareTestContainer(t *testing.T) (cleanup func(), retAddress string, nomadToken string) {
@@ -28,8 +30,8 @@ func prepareTestContainer(t *testing.T) (cleanup func(), retAddress string, noma
 	}
 
 	dockerOptions := &dockertest.RunOptions{
-		Repository: "djenriquez/nomad",
-		Tag:        "latest",
+		Repository: "catsby/nomad",
+		Tag:        "0.8.4",
 		Cmd:        []string{"agent", "-dev"},
 		Env:        []string{`NOMAD_LOCAL_CONFIG=bind_addr = "0.0.0.0" acl { enabled = true }`},
 	}
@@ -46,9 +48,7 @@ func prepareTestContainer(t *testing.T) (cleanup func(), retAddress string, noma
 	}
 
 	retAddress = fmt.Sprintf("http://localhost:%s/", resource.GetPort("4646/tcp"))
-	// Give Nomad time to initialize
 
-	time.Sleep(5000 * time.Millisecond)
 	// exponential backoff-retry
 	if err = pool.Retry(func() error {
 		var err error
@@ -60,7 +60,7 @@ func prepareTestContainer(t *testing.T) (cleanup func(), retAddress string, noma
 		}
 		aclbootstrap, _, err := nomad.ACLTokens().Bootstrap(nil)
 		if err != nil {
-			t.Fatalf("err: %v", err)
+			return err
 		}
 		nomadToken = aclbootstrap.SecretID
 		t.Logf("[WARN] Generated Master token: %s", nomadToken)
@@ -92,13 +92,13 @@ func prepareTestContainer(t *testing.T) (cleanup func(), retAddress string, noma
 		nomadAuth, err := nomadapi.NewClient(nomadAuthConfig)
 		_, err = nomadAuth.ACLPolicies().Upsert(policy, nil)
 		if err != nil {
-			t.Fatal(err)
+			return err
 		}
 		_, err = nomadAuth.ACLPolicies().Upsert(anonPolicy, nil)
 		if err != nil {
-			t.Fatal(err)
+			return err
 		}
-		return err
+		return nil
 	}); err != nil {
 		cleanup()
 		t.Fatalf("Could not connect to docker: %s", err)
@@ -109,7 +109,7 @@ func prepareTestContainer(t *testing.T) (cleanup func(), retAddress string, noma
 func TestBackend_config_access(t *testing.T) {
 	config := logical.TestBackendConfig()
 	config.StorageView = &logical.InmemStorage{}
-	b, err := Factory(config)
+	b, err := Factory(context.Background(), config)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -129,19 +129,20 @@ func TestBackend_config_access(t *testing.T) {
 		Data:      connData,
 	}
 
-	resp, err := b.HandleRequest(confReq)
+	resp, err := b.HandleRequest(context.Background(), confReq)
 	if err != nil || (resp != nil && resp.IsError()) || resp != nil {
 		t.Fatalf("failed to write configuration: resp:%#v err:%s", resp, err)
 	}
 
 	confReq.Operation = logical.ReadOperation
-	resp, err = b.HandleRequest(confReq)
+	resp, err = b.HandleRequest(context.Background(), confReq)
 	if err != nil || (resp != nil && resp.IsError()) {
 		t.Fatalf("failed to write configuration: resp:%#v err:%s", resp, err)
 	}
 
 	expected := map[string]interface{}{
-		"address": connData["address"].(string),
+		"address":               connData["address"].(string),
+		"max_token_name_length": 0,
 	}
 	if !reflect.DeepEqual(expected, resp.Data) {
 		t.Fatalf("bad: expected:%#v\nactual:%#v\n", expected, resp.Data)
@@ -154,7 +155,7 @@ func TestBackend_config_access(t *testing.T) {
 func TestBackend_renew_revoke(t *testing.T) {
 	config := logical.TestBackendConfig()
 	config.StorageView = &logical.InmemStorage{}
-	b, err := Factory(config)
+	b, err := Factory(context.Background(), config)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -172,7 +173,7 @@ func TestBackend_renew_revoke(t *testing.T) {
 		Path:      "config/access",
 		Data:      connData,
 	}
-	resp, err := b.HandleRequest(req)
+	resp, err := b.HandleRequest(context.Background(), req)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -182,14 +183,14 @@ func TestBackend_renew_revoke(t *testing.T) {
 		"policies": []string{"policy"},
 		"lease":    "6h",
 	}
-	resp, err = b.HandleRequest(req)
+	resp, err = b.HandleRequest(context.Background(), req)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	req.Operation = logical.ReadOperation
 	req.Path = "creds/test"
-	resp, err = b.HandleRequest(req)
+	resp, err = b.HandleRequest(context.Background(), req)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -201,7 +202,6 @@ func TestBackend_renew_revoke(t *testing.T) {
 	}
 
 	generatedSecret := resp.Secret
-	generatedSecret.IssueTime = time.Now()
 	generatedSecret.TTL = 6 * time.Hour
 
 	var d struct {
@@ -211,7 +211,7 @@ func TestBackend_renew_revoke(t *testing.T) {
 	if err := mapstructure.Decode(resp.Data, &d); err != nil {
 		t.Fatal(err)
 	}
-	t.Logf("[WARN] Generated token: %s with accesor %s", d.Token, d.Accessor)
+	t.Logf("[WARN] Generated token: %s with accessor %s", d.Token, d.Accessor)
 
 	// Build a client and verify that the credentials work
 	nomadapiConfig := nomadapi.DefaultConfig()
@@ -230,7 +230,7 @@ func TestBackend_renew_revoke(t *testing.T) {
 
 	req.Operation = logical.RenewOperation
 	req.Secret = generatedSecret
-	resp, err = b.HandleRequest(req)
+	resp, err = b.HandleRequest(context.Background(), req)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -239,7 +239,7 @@ func TestBackend_renew_revoke(t *testing.T) {
 	}
 
 	req.Operation = logical.RevokeOperation
-	resp, err = b.HandleRequest(req)
+	resp, err = b.HandleRequest(context.Background(), req)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -264,7 +264,7 @@ func TestBackend_renew_revoke(t *testing.T) {
 func TestBackend_CredsCreateEnvVar(t *testing.T) {
 	config := logical.TestBackendConfig()
 	config.StorageView = &logical.InmemStorage{}
-	b, err := Factory(config)
+	b, err := Factory(context.Background(), config)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -277,7 +277,7 @@ func TestBackend_CredsCreateEnvVar(t *testing.T) {
 		"policies": []string{"policy"},
 		"lease":    "6h",
 	}
-	resp, err := b.HandleRequest(req)
+	resp, err := b.HandleRequest(context.Background(), req)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -289,7 +289,7 @@ func TestBackend_CredsCreateEnvVar(t *testing.T) {
 
 	req.Operation = logical.ReadOperation
 	req.Path = "creds/test"
-	resp, err = b.HandleRequest(req)
+	resp, err = b.HandleRequest(context.Background(), req)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -298,5 +298,155 @@ func TestBackend_CredsCreateEnvVar(t *testing.T) {
 	}
 	if resp.IsError() {
 		t.Fatalf("resp is error: %v", resp.Error())
+	}
+}
+
+func TestBackend_max_token_name_length(t *testing.T) {
+	config := logical.TestBackendConfig()
+	config.StorageView = &logical.InmemStorage{}
+	b, err := Factory(context.Background(), config)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	cleanup, connURL, connToken := prepareTestContainer(t)
+	defer cleanup()
+
+	testCases := []struct {
+		title       string
+		roleName    string
+		tokenLength int
+	}{
+		{
+			title: "Default",
+		},
+		{
+			title:       "ConfigOverride",
+			tokenLength: 64,
+		},
+		{
+			title:       "ConfigOverride-LongName",
+			roleName:    "testlongerrolenametoexceed64charsdddddddddddddddddddddddd",
+			tokenLength: 64,
+		},
+		{
+			title:    "Notrim",
+			roleName: "testlongersubrolenametoexceed64charsdddddddddddddddddddddddd",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.title, func(t *testing.T) {
+			// setup config/access
+			connData := map[string]interface{}{
+				"address":               connURL,
+				"token":                 connToken,
+				"max_token_name_length": tc.tokenLength,
+			}
+			expected := map[string]interface{}{
+				"address":               connURL,
+				"max_token_name_length": tc.tokenLength,
+			}
+
+			expectedMaxTokenNameLength := maxTokenNameLength
+			if tc.tokenLength != 0 {
+				expectedMaxTokenNameLength = tc.tokenLength
+			}
+
+			confReq := logical.Request{
+				Operation: logical.UpdateOperation,
+				Path:      "config/access",
+				Storage:   config.StorageView,
+				Data:      connData,
+			}
+
+			resp, err := b.HandleRequest(context.Background(), &confReq)
+			if err != nil || (resp != nil && resp.IsError()) || resp != nil {
+				t.Fatalf("failed to write configuration: resp:%#v err:%s", resp, err)
+			}
+			confReq.Operation = logical.ReadOperation
+			resp, err = b.HandleRequest(context.Background(), &confReq)
+			if err != nil || (resp != nil && resp.IsError()) {
+				t.Fatalf("failed to write configuration: resp:%#v err:%s", resp, err)
+			}
+
+			// verify token length is returned in the config/access query
+			if !reflect.DeepEqual(expected, resp.Data) {
+				t.Fatalf("bad: expected:%#v\nactual:%#v\n", expected, resp.Data)
+			}
+			// verify token is not returned
+			if resp.Data["token"] != nil {
+				t.Fatalf("token should not be set in the response")
+			}
+
+			// create a role to create nomad credentials with
+			// Seeds random with current timestamp
+
+			if tc.roleName == "" {
+				tc.roleName = "test"
+			}
+			roleTokenName := testhelpers.RandomWithPrefix(tc.roleName)
+
+			confReq.Path = "role/" + roleTokenName
+			confReq.Operation = logical.UpdateOperation
+			confReq.Data = map[string]interface{}{
+				"policies": []string{"policy"},
+				"lease":    "6h",
+			}
+			resp, err = b.HandleRequest(context.Background(), &confReq)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			confReq.Operation = logical.ReadOperation
+			confReq.Path = "creds/" + roleTokenName
+			resp, err = b.HandleRequest(context.Background(), &confReq)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if resp == nil {
+				t.Fatal("resp nil")
+			}
+			if resp.IsError() {
+				t.Fatalf("resp is error: %v", resp.Error())
+			}
+
+			// extract the secret, so we can query nomad directly
+			generatedSecret := resp.Secret
+			generatedSecret.TTL = 6 * time.Hour
+
+			var d struct {
+				Token    string `mapstructure:"secret_id"`
+				Accessor string `mapstructure:"accessor_id"`
+			}
+			if err := mapstructure.Decode(resp.Data, &d); err != nil {
+				t.Fatal(err)
+			}
+
+			// Build a client and verify that the credentials work
+			nomadapiConfig := nomadapi.DefaultConfig()
+			nomadapiConfig.Address = connData["address"].(string)
+			nomadapiConfig.SecretID = d.Token
+			client, err := nomadapi.NewClient(nomadapiConfig)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			// default query options for Nomad queries ... not sure if needed
+			qOpts := &nomadapi.QueryOptions{
+				Namespace: "default",
+			}
+
+			// connect to Nomad and verify the token name does not exceed the
+			// max_token_name_length
+			token, _, err := client.ACLTokens().Self(qOpts)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			if len(token.Name) > expectedMaxTokenNameLength {
+				t.Fatalf("token name exceeds max length (%d): %s (%d)", expectedMaxTokenNameLength, token.Name, len(token.Name))
+			}
+		})
 	}
 }

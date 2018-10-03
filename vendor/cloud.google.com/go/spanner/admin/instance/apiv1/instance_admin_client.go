@@ -1,10 +1,10 @@
-// Copyright 2017, Google LLC All rights reserved.
+// Copyright 2018 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-//     http://www.apache.org/licenses/LICENSE-2.0
+//     https://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
@@ -23,6 +23,7 @@ import (
 	"cloud.google.com/go/internal/version"
 	"cloud.google.com/go/longrunning"
 	lroauto "cloud.google.com/go/longrunning/autogen"
+	"github.com/golang/protobuf/proto"
 	gax "github.com/googleapis/gax-go"
 	"golang.org/x/net/context"
 	"google.golang.org/api/iterator"
@@ -87,6 +88,8 @@ func defaultInstanceAdminCallOptions() *InstanceAdminCallOptions {
 }
 
 // InstanceAdminClient is a client for interacting with Cloud Spanner Instance Admin API.
+//
+// Methods, except Close, may be called concurrently. However, fields must not be modified concurrently with method calls.
 type InstanceAdminClient struct {
 	// The connection to the service.
 	conn *grpc.ClientConn
@@ -175,39 +178,12 @@ func (c *InstanceAdminClient) setGoogleClientInfo(keyval ...string) {
 	c.xGoogMetadata = metadata.Pairs("x-goog-api-client", gax.XGoogHeader(kv...))
 }
 
-// InstanceAdminProjectPath returns the path for the project resource.
-func InstanceAdminProjectPath(project string) string {
-	return "" +
-		"projects/" +
-		project +
-		""
-}
-
-// InstanceAdminInstanceConfigPath returns the path for the instance config resource.
-func InstanceAdminInstanceConfigPath(project, instanceConfig string) string {
-	return "" +
-		"projects/" +
-		project +
-		"/instanceConfigs/" +
-		instanceConfig +
-		""
-}
-
-// InstanceAdminInstancePath returns the path for the instance resource.
-func InstanceAdminInstancePath(project, instance string) string {
-	return "" +
-		"projects/" +
-		project +
-		"/instances/" +
-		instance +
-		""
-}
-
 // ListInstanceConfigs lists the supported instance configurations for a given project.
 func (c *InstanceAdminClient) ListInstanceConfigs(ctx context.Context, req *instancepb.ListInstanceConfigsRequest, opts ...gax.CallOption) *InstanceConfigIterator {
 	ctx = insertMetadata(ctx, c.xGoogMetadata)
 	opts = append(c.CallOptions.ListInstanceConfigs[0:len(c.CallOptions.ListInstanceConfigs):len(c.CallOptions.ListInstanceConfigs)], opts...)
 	it := &InstanceConfigIterator{}
+	req = proto.Clone(req).(*instancepb.ListInstanceConfigsRequest)
 	it.InternalFetch = func(pageSize int, pageToken string) ([]*instancepb.InstanceConfig, string, error) {
 		var resp *instancepb.ListInstanceConfigsResponse
 		req.PageToken = pageToken
@@ -235,6 +211,7 @@ func (c *InstanceAdminClient) ListInstanceConfigs(ctx context.Context, req *inst
 		return nextPageToken, nil
 	}
 	it.pageInfo, it.nextFunc = iterator.NewPageInfo(fetch, it.bufLen, it.takeBuf)
+	it.pageInfo.MaxSize = int(req.PageSize)
 	return it
 }
 
@@ -259,6 +236,7 @@ func (c *InstanceAdminClient) ListInstances(ctx context.Context, req *instancepb
 	ctx = insertMetadata(ctx, c.xGoogMetadata)
 	opts = append(c.CallOptions.ListInstances[0:len(c.CallOptions.ListInstances):len(c.CallOptions.ListInstances)], opts...)
 	it := &InstanceIterator{}
+	req = proto.Clone(req).(*instancepb.ListInstancesRequest)
 	it.InternalFetch = func(pageSize int, pageToken string) ([]*instancepb.Instance, string, error) {
 		var resp *instancepb.ListInstancesResponse
 		req.PageToken = pageToken
@@ -286,6 +264,7 @@ func (c *InstanceAdminClient) ListInstances(ctx context.Context, req *instancepb
 		return nextPageToken, nil
 	}
 	it.pageInfo, it.nextFunc = iterator.NewPageInfo(fetch, it.bufLen, it.takeBuf)
+	it.pageInfo.MaxSize = int(req.PageSize)
 	return it
 }
 

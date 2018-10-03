@@ -1,4 +1,4 @@
-// Package safebrowsing provides access to the Google Safe Browsing API.
+// Package safebrowsing provides access to the Safe Browsing API.
 //
 // See https://developers.google.com/safe-browsing/
 //
@@ -216,6 +216,16 @@ func (s *ClientInfo) MarshalJSON() ([]byte, error) {
 
 // Constraints: The constraints for this update.
 type Constraints struct {
+	// DeviceLocation: A client's physical location, expressed as a ISO
+	// 31166-1 alpha-2
+	// region code.
+	DeviceLocation string `json:"deviceLocation,omitempty"`
+
+	// Language: Requests the lists for a specific language. Expects ISO 639
+	// alpha-2
+	// format.
+	Language string `json:"language,omitempty"`
+
 	// MaxDatabaseEntries: Sets the maximum number of entries that the
 	// client is willing to have
 	// in the local database. This should be a power of 2 between 2**10
@@ -245,15 +255,15 @@ type Constraints struct {
 	//   "RICE" - Rice-Golomb encoded data.
 	SupportedCompressions []string `json:"supportedCompressions,omitempty"`
 
-	// ForceSendFields is a list of field names (e.g. "MaxDatabaseEntries")
-	// to unconditionally include in API requests. By default, fields with
+	// ForceSendFields is a list of field names (e.g. "DeviceLocation") to
+	// unconditionally include in API requests. By default, fields with
 	// empty values are omitted from API requests. However, any non-pointer,
 	// non-interface field appearing in ForceSendFields will be sent to the
 	// server regardless of whether the field is empty or not. This may be
 	// used to include empty fields in Patch requests.
 	ForceSendFields []string `json:"-"`
 
-	// NullFields is a list of field names (e.g. "MaxDatabaseEntries") to
+	// NullFields is a list of field names (e.g. "DeviceLocation") to
 	// include in API requests with the JSON null value. By default, fields
 	// with empty values are omitted from API requests. However, any field
 	// with an empty value appearing in NullFields will be sent to the
@@ -599,6 +609,8 @@ type ListUpdateRequest struct {
 	//   "SUBRESOURCE_FILTER" - Patterns to be used for activating the
 	// subresource filter. Interstitial
 	// will not be shown for patterns from this list.
+	//   "SUSPICIOUS" - Entities that are suspected to present a threat.
+	//   "TRICK_TO_BILL" - Trick-to-bill threat list.
 	ThreatType string `json:"threatType,omitempty"`
 
 	// ForceSendFields is a list of field names (e.g. "Constraints") to
@@ -717,6 +729,8 @@ type ListUpdateResponse struct {
 	//   "SUBRESOURCE_FILTER" - Patterns to be used for activating the
 	// subresource filter. Interstitial
 	// will not be shown for patterns from this list.
+	//   "SUSPICIOUS" - Entities that are suspected to present a threat.
+	//   "TRICK_TO_BILL" - Trick-to-bill threat list.
 	ThreatType string `json:"threatType,omitempty"`
 
 	// ForceSendFields is a list of field names (e.g. "Additions") to
@@ -862,7 +876,9 @@ type RiceDeltaEncoding struct {
 
 	// FirstValue: The offset of the first entry in the encoded data, or, if
 	// only a single
-	// integer was encoded, that single integer's value.
+	// integer was encoded, that single integer's value. If the field is
+	// empty or
+	// missing, assume zero.
 	FirstValue int64 `json:"firstValue,omitempty,string"`
 
 	// NumEntries: The number of entries that are delta encoded in the
@@ -1083,6 +1099,8 @@ type ThreatHit struct {
 	//   "SUBRESOURCE_FILTER" - Patterns to be used for activating the
 	// subresource filter. Interstitial
 	// will not be shown for patterns from this list.
+	//   "SUSPICIOUS" - Entities that are suspected to present a threat.
+	//   "TRICK_TO_BILL" - Trick-to-bill threat list.
 	ThreatType string `json:"threatType,omitempty"`
 
 	// UserInfo: Details about the user that encountered the threat.
@@ -1169,6 +1187,8 @@ type ThreatInfo struct {
 	//   "SUBRESOURCE_FILTER" - Patterns to be used for activating the
 	// subresource filter. Interstitial
 	// will not be shown for patterns from this list.
+	//   "SUSPICIOUS" - Entities that are suspected to present a threat.
+	//   "TRICK_TO_BILL" - Trick-to-bill threat list.
 	ThreatTypes []string `json:"threatTypes,omitempty"`
 
 	// ForceSendFields is a list of field names (e.g. "PlatformTypes") to
@@ -1251,6 +1271,8 @@ type ThreatListDescriptor struct {
 	//   "SUBRESOURCE_FILTER" - Patterns to be used for activating the
 	// subresource filter. Interstitial
 	// will not be shown for patterns from this list.
+	//   "SUSPICIOUS" - Entities that are suspected to present a threat.
+	//   "TRICK_TO_BILL" - Trick-to-bill threat list.
 	ThreatType string `json:"threatType,omitempty"`
 
 	// ForceSendFields is a list of field names (e.g. "PlatformType") to
@@ -1341,6 +1363,8 @@ type ThreatMatch struct {
 	//   "SUBRESOURCE_FILTER" - Patterns to be used for activating the
 	// subresource filter. Interstitial
 	// will not be shown for patterns from this list.
+	//   "SUSPICIOUS" - Entities that are suspected to present a threat.
+	//   "TRICK_TO_BILL" - Trick-to-bill threat list.
 	ThreatType string `json:"threatType,omitempty"`
 
 	// ForceSendFields is a list of field names (e.g. "CacheDuration") to
@@ -1528,6 +1552,7 @@ func (c *EncodedFullHashesGetCall) doRequest(alt string) (*http.Response, error)
 	}
 	var body io.Reader = nil
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "v4/encodedFullHashes/{encodedRequest}")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("GET", urls, body)
@@ -1689,6 +1714,7 @@ func (c *EncodedUpdatesGetCall) doRequest(alt string) (*http.Response, error) {
 	}
 	var body io.Reader = nil
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "v4/encodedUpdates/{encodedRequest}")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("GET", urls, body)
@@ -1826,6 +1852,7 @@ func (c *FullHashesFindCall) doRequest(alt string) (*http.Response, error) {
 	}
 	reqHeaders.Set("Content-Type", "application/json")
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "v4/fullHashes:find")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("POST", urls, body)
@@ -1945,6 +1972,7 @@ func (c *ThreatHitsCreateCall) doRequest(alt string) (*http.Response, error) {
 	}
 	reqHeaders.Set("Content-Type", "application/json")
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "v4/threatHits")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("POST", urls, body)
@@ -2064,6 +2092,7 @@ func (c *ThreatListUpdatesFetchCall) doRequest(alt string) (*http.Response, erro
 	}
 	reqHeaders.Set("Content-Type", "application/json")
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "v4/threatListUpdates:fetch")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("POST", urls, body)
@@ -2188,6 +2217,7 @@ func (c *ThreatListsListCall) doRequest(alt string) (*http.Response, error) {
 	}
 	var body io.Reader = nil
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "v4/threatLists")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("GET", urls, body)
@@ -2302,6 +2332,7 @@ func (c *ThreatMatchesFindCall) doRequest(alt string) (*http.Response, error) {
 	}
 	reqHeaders.Set("Content-Type", "application/json")
 	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
 	urls := googleapi.ResolveRelative(c.s.BasePath, "v4/threatMatches:find")
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("POST", urls, body)

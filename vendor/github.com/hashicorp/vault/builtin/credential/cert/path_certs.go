@@ -1,11 +1,14 @@
 package cert
 
 import (
+	"context"
 	"crypto/x509"
 	"fmt"
 	"strings"
 	"time"
 
+	"github.com/hashicorp/go-sockaddr"
+	"github.com/hashicorp/vault/helper/parseutil"
 	"github.com/hashicorp/vault/helper/policyutil"
 	"github.com/hashicorp/vault/logical"
 	"github.com/hashicorp/vault/logical/framework"
@@ -42,7 +45,39 @@ Must be x509 PEM encoded.`,
 			"allowed_names": &framework.FieldSchema{
 				Type: framework.TypeCommaStringSlice,
 				Description: `A comma-separated list of names.
-At least one must exist in either the Common Name or SANs. Supports globbing.`,
+At least one must exist in either the Common Name or SANs. Supports globbing.  
+This parameter is deprecated, please use allowed_common_names, allowed_dns_sans, 
+allowed_email_sans, allowed_uri_sans.`,
+			},
+
+			"allowed_common_names": &framework.FieldSchema{
+				Type: framework.TypeCommaStringSlice,
+				Description: `A comma-separated list of names.
+At least one must exist in the Common Name. Supports globbing.`,
+			},
+
+			"allowed_dns_sans": &framework.FieldSchema{
+				Type: framework.TypeCommaStringSlice,
+				Description: `A comma-separated list of DNS names.
+At least one must exist in the SANs. Supports globbing.`,
+			},
+
+			"allowed_email_sans": &framework.FieldSchema{
+				Type: framework.TypeCommaStringSlice,
+				Description: `A comma-separated list of Email Addresses.
+At least one must exist in the SANs. Supports globbing.`,
+			},
+
+			"allowed_uri_sans": &framework.FieldSchema{
+				Type: framework.TypeCommaStringSlice,
+				Description: `A comma-separated list of URIs.
+At least one must exist in the SANs. Supports globbing.`,
+			},
+
+			"allowed_organizational_units": &framework.FieldSchema{
+				Type: framework.TypeCommaStringSlice,
+				Description: `A comma-separated list of Organizational Units names.
+At least one must exist in the OU field.`,
 			},
 
 			"required_extensions": &framework.FieldSchema{
@@ -60,7 +95,7 @@ certificate.`,
 
 			"policies": &framework.FieldSchema{
 				Type:        framework.TypeCommaStringSlice,
-				Description: "Comma-seperated list of policies.",
+				Description: "Comma-separated list of policies.",
 			},
 
 			"lease": &framework.FieldSchema{
@@ -74,18 +109,25 @@ seconds. Defaults to system/backend default TTL.`,
 				Description: `TTL for tokens issued by this backend.
 Defaults to system/backend default TTL time.`,
 			},
+
 			"max_ttl": &framework.FieldSchema{
 				Type: framework.TypeDurationSecond,
 				Description: `Duration in either an integer number of seconds (3600) or
-an integer time unit (60m) after which the 
+an integer time unit (60m) after which the
 issued token can no longer be renewed.`,
 			},
+
 			"period": &framework.FieldSchema{
 				Type: framework.TypeDurationSecond,
 				Description: `If set, indicates that the token generated using this role
 should never expire. The token should be renewed within the
 duration specified by this value. At each renewal, the token's
 TTL will be set to the value of this parameter.`,
+			},
+			"bound_cidrs": &framework.FieldSchema{
+				Type: framework.TypeCommaStringSlice,
+				Description: `Comma separated string or list of CIDR blocks. If set, specifies the blocks of
+IP addresses which can perform the login operation.`,
 			},
 		},
 
@@ -100,8 +142,8 @@ TTL will be set to the value of this parameter.`,
 	}
 }
 
-func (b *backend) Cert(s logical.Storage, n string) (*CertEntry, error) {
-	entry, err := s.Get("cert/" + strings.ToLower(n))
+func (b *backend) Cert(ctx context.Context, s logical.Storage, n string) (*CertEntry, error) {
+	entry, err := s.Get(ctx, "cert/"+strings.ToLower(n))
 	if err != nil {
 		return nil, err
 	}
@@ -116,27 +158,24 @@ func (b *backend) Cert(s logical.Storage, n string) (*CertEntry, error) {
 	return &result, nil
 }
 
-func (b *backend) pathCertDelete(
-	req *logical.Request, d *framework.FieldData) (*logical.Response, error) {
-	err := req.Storage.Delete("cert/" + strings.ToLower(d.Get("name").(string)))
+func (b *backend) pathCertDelete(ctx context.Context, req *logical.Request, d *framework.FieldData) (*logical.Response, error) {
+	err := req.Storage.Delete(ctx, "cert/"+strings.ToLower(d.Get("name").(string)))
 	if err != nil {
 		return nil, err
 	}
 	return nil, nil
 }
 
-func (b *backend) pathCertList(
-	req *logical.Request, d *framework.FieldData) (*logical.Response, error) {
-	certs, err := req.Storage.List("cert/")
+func (b *backend) pathCertList(ctx context.Context, req *logical.Request, d *framework.FieldData) (*logical.Response, error) {
+	certs, err := req.Storage.List(ctx, "cert/")
 	if err != nil {
 		return nil, err
 	}
 	return logical.ListResponse(certs), nil
 }
 
-func (b *backend) pathCertRead(
-	req *logical.Request, d *framework.FieldData) (*logical.Response, error) {
-	cert, err := b.Cert(req.Storage, strings.ToLower(d.Get("name").(string)))
+func (b *backend) pathCertRead(ctx context.Context, req *logical.Request, d *framework.FieldData) (*logical.Response, error) {
+	cert, err := b.Cert(ctx, req.Storage, strings.ToLower(d.Get("name").(string)))
 	if err != nil {
 		return nil, err
 	}
@@ -146,23 +185,34 @@ func (b *backend) pathCertRead(
 
 	return &logical.Response{
 		Data: map[string]interface{}{
-			"certificate":  cert.Certificate,
-			"display_name": cert.DisplayName,
-			"policies":     cert.Policies,
-			"ttl":          cert.TTL / time.Second,
-			"max_ttl":      cert.MaxTTL / time.Second,
-			"period":       cert.Period / time.Second,
+			"certificate":                  cert.Certificate,
+			"display_name":                 cert.DisplayName,
+			"policies":                     cert.Policies,
+			"ttl":                          cert.TTL / time.Second,
+			"max_ttl":                      cert.MaxTTL / time.Second,
+			"period":                       cert.Period / time.Second,
+			"allowed_names":                cert.AllowedNames,
+			"allowed_common_names":         cert.AllowedCommonNames,
+			"allowed_dns_sans":             cert.AllowedDNSSANs,
+			"allowed_email_sans":           cert.AllowedEmailSANs,
+			"allowed_uri_sans":             cert.AllowedURISANs,
+			"allowed_organizational_units": cert.AllowedOrganizationalUnits,
+			"required_extensions":          cert.RequiredExtensions,
 		},
 	}, nil
 }
 
-func (b *backend) pathCertWrite(
-	req *logical.Request, d *framework.FieldData) (*logical.Response, error) {
+func (b *backend) pathCertWrite(ctx context.Context, req *logical.Request, d *framework.FieldData) (*logical.Response, error) {
 	name := strings.ToLower(d.Get("name").(string))
 	certificate := d.Get("certificate").(string)
 	displayName := d.Get("display_name").(string)
 	policies := policyutil.ParsePolicies(d.Get("policies"))
 	allowedNames := d.Get("allowed_names").([]string)
+	allowedCommonNames := d.Get("allowed_common_names").([]string)
+	allowedDNSSANs := d.Get("allowed_dns_sans").([]string)
+	allowedEmailSANs := d.Get("allowed_email_sans").([]string)
+	allowedURISANs := d.Get("allowed_uri_sans").([]string)
+	allowedOrganizationalUnits := d.Get("allowed_organizational_units").([]string)
 	requiredExtensions := d.Get("required_extensions").([]string)
 
 	var resp logical.Response
@@ -230,16 +280,27 @@ func (b *backend) pathCertWrite(
 		}
 	}
 
+	parsedCIDRs, err := parseutil.ParseAddrs(d.Get("bound_cidrs"))
+	if err != nil {
+		return logical.ErrorResponse(err.Error()), logical.ErrInvalidRequest
+	}
+
 	certEntry := &CertEntry{
-		Name:               name,
-		Certificate:        certificate,
-		DisplayName:        displayName,
-		Policies:           policies,
-		AllowedNames:       allowedNames,
-		RequiredExtensions: requiredExtensions,
-		TTL:                ttl,
-		MaxTTL:             maxTTL,
-		Period:             period,
+		Name:                       name,
+		Certificate:                certificate,
+		DisplayName:                displayName,
+		Policies:                   policies,
+		AllowedNames:               allowedNames,
+		AllowedCommonNames:         allowedCommonNames,
+		AllowedDNSSANs:             allowedDNSSANs,
+		AllowedEmailSANs:           allowedEmailSANs,
+		AllowedURISANs:             allowedURISANs,
+		AllowedOrganizationalUnits: allowedOrganizationalUnits,
+		RequiredExtensions:         requiredExtensions,
+		TTL:                        ttl,
+		MaxTTL:                     maxTTL,
+		Period:                     period,
+		BoundCIDRs:                 parsedCIDRs,
 	}
 
 	// Store it
@@ -247,7 +308,7 @@ func (b *backend) pathCertWrite(
 	if err != nil {
 		return nil, err
 	}
-	if err := req.Storage.Put(entry); err != nil {
+	if err := req.Storage.Put(ctx, entry); err != nil {
 		return nil, err
 	}
 
@@ -259,15 +320,21 @@ func (b *backend) pathCertWrite(
 }
 
 type CertEntry struct {
-	Name               string
-	Certificate        string
-	DisplayName        string
-	Policies           []string
-	TTL                time.Duration
-	MaxTTL             time.Duration
-	Period             time.Duration
-	AllowedNames       []string
-	RequiredExtensions []string
+	Name                       string
+	Certificate                string
+	DisplayName                string
+	Policies                   []string
+	TTL                        time.Duration
+	MaxTTL                     time.Duration
+	Period                     time.Duration
+	AllowedNames               []string
+	AllowedCommonNames         []string
+	AllowedDNSSANs             []string
+	AllowedEmailSANs           []string
+	AllowedURISANs             []string
+	AllowedOrganizationalUnits []string
+	RequiredExtensions         []string
+	BoundCIDRs                 []*sockaddr.SockAddrMarshaler
 }
 
 const pathCertHelpSyn = `

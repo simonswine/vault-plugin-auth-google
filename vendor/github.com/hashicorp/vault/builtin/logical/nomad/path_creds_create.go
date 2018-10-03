@@ -1,6 +1,7 @@
 package nomad
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -9,6 +10,10 @@ import (
 	"github.com/hashicorp/vault/logical"
 	"github.com/hashicorp/vault/logical/framework"
 )
+
+// maxTokenNameLength is the maximum length for the name of a Nomad access
+// token
+const maxTokenNameLength = 256
 
 func pathCredsCreate(b *backend) *framework.Path {
 	return &framework.Path{
@@ -26,11 +31,16 @@ func pathCredsCreate(b *backend) *framework.Path {
 	}
 }
 
-func (b *backend) pathTokenRead(
-	req *logical.Request, d *framework.FieldData) (*logical.Response, error) {
+func (b *backend) pathTokenRead(ctx context.Context, req *logical.Request, d *framework.FieldData) (*logical.Response, error) {
 	name := d.Get("name").(string)
+	conf, _ := b.readConfigAccess(ctx, req.Storage)
+	// establish a default
+	tokenNameLength := maxTokenNameLength
+	if conf != nil && conf.MaxTokenNameLength > 0 {
+		tokenNameLength = conf.MaxTokenNameLength
+	}
 
-	role, err := b.Role(req.Storage, name)
+	role, err := b.Role(ctx, req.Storage, name)
 	if err != nil {
 		return nil, errwrap.Wrapf("error retrieving role: {{err}}", err)
 	}
@@ -39,7 +49,7 @@ func (b *backend) pathTokenRead(
 	}
 
 	// Determine if we have a lease configuration
-	leaseConfig, err := b.LeaseConfig(req.Storage)
+	leaseConfig, err := b.LeaseConfig(ctx, req.Storage)
 	if err != nil {
 		return nil, err
 	}
@@ -48,13 +58,20 @@ func (b *backend) pathTokenRead(
 	}
 
 	// Get the nomad client
-	c, err := b.client(req.Storage)
+	c, err := b.client(ctx, req.Storage)
 	if err != nil {
 		return nil, err
 	}
 
 	// Generate a name for the token
 	tokenName := fmt.Sprintf("vault-%s-%s-%d", name, req.DisplayName, time.Now().UnixNano())
+
+	// Note: if the given role name is sufficiently long, the UnixNano() portion
+	// of the pseudo randomized token name is the part that gets trimmed off,
+	// weakening it's randomness.
+	if len(tokenName) > tokenNameLength {
+		tokenName = tokenName[:tokenNameLength]
+	}
 
 	// Create it
 	token, _, err := c.ACLTokens().Create(&api.ACLToken{
@@ -75,6 +92,7 @@ func (b *backend) pathTokenRead(
 		"accessor_id": token.AccessorID,
 	})
 	resp.Secret.TTL = leaseConfig.TTL
+	resp.Secret.MaxTTL = leaseConfig.MaxTTL
 
 	return resp, nil
 }

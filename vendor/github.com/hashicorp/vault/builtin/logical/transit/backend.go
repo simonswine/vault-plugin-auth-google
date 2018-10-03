@@ -1,6 +1,7 @@
 package transit
 
 import (
+	"context"
 	"strings"
 
 	"github.com/hashicorp/vault/helper/keysutil"
@@ -8,9 +9,9 @@ import (
 	"github.com/hashicorp/vault/logical/framework"
 )
 
-func Factory(conf *logical.BackendConfig) (logical.Backend, error) {
+func Factory(ctx context.Context, conf *logical.BackendConfig) (logical.Backend, error) {
 	b := Backend(conf)
-	if err := b.Setup(conf); err != nil {
+	if err := b.Setup(ctx, conf); err != nil {
 		return nil, err
 	}
 	return b, nil
@@ -62,9 +63,9 @@ type backend struct {
 	lm *keysutil.LockManager
 }
 
-func (b *backend) invalidate(key string) {
-	if b.Logger().IsTrace() {
-		b.Logger().Trace("transit: invalidating key", "key", key)
+func (b *backend) invalidate(_ context.Context, key string) {
+	if b.Logger().IsDebug() {
+		b.Logger().Debug("invalidating key", "key", key)
 	}
 	switch {
 	case strings.HasPrefix(key, "policy/"):

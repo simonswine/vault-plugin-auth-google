@@ -1,24 +1,24 @@
 ---
 layout: "api"
-page_title: "Github Auth Backend - HTTP API"
+page_title: "GitHub - Auth Methods - HTTP API"
 sidebar_current: "docs-http-auth-github"
 description: |-
-  This is the API documentation for the Vault Github authentication backend.
+  This is the API documentation for the Vault GitHub auth method.
 ---
 
-# Github Auth Backend HTTP API
+# GitHub Auth Method (API)
 
-This is the API documentation for the Vault Github authentication backend. For
-general information about the usage and operation of the Github backend, please
-see the [Vault Github backend documentation](/docs/auth/github.html).
+This is the API documentation for the Vault GitHub auth method. For
+general information about the usage and operation of the GitHub method, please
+see the [Vault GitHub method documentation](/docs/auth/github.html).
 
-This documentation assumes the Github backend is mounted at the `/auth/github`
-path in Vault. Since it is possible to mount auth backends at any location,
+This documentation assumes the GitHub method is enabled at the `/auth/github`
+path in Vault. Since it is possible to enable auth methods at any location,
 please update your API calls accordingly.
 
-## Configure Backend
+## Configure Method
 
-Configures the connection parameters for Github. This path honors the 
+Configures the connection parameters for GitHub. This path honors the
 distinction between the `create` and `update` capabilities inside ACL policies.
 
 | Method   | Path                         | Produces               |
@@ -27,12 +27,12 @@ distinction between the `create` and `update` capabilities inside ACL policies.
 
 ### Parameters
 
-- `organization` `(string: <required>)` - The organization users must be part 
+- `organization` `(string: <required>)` - The organization users must be part
   of.
 - `base_url` `(string: "")` - The API endpoint to use. Useful if you are running
   GitHub Enterprise or an API-compatible authentication server.
 - `ttl` `(string: "")` - Duration after which authentication will be expired.
-- `max_ttl` `(string: "")` - Maximum duration after which authentication will 
+- `max_ttl` `(string: "")` - Maximum duration after which authentication will
   be expired.
 
 ### Sample Payload
@@ -50,12 +50,12 @@ $ curl \
     --header "X-Vault-Token: ..." \
     --request POST \
     --data @payload.json \
-    https://vault.rocks/v1/auth/github/config
+    http://127.0.0.1:8200/v1/auth/github/config
 ```
 
 ## Read Configuration
 
-Reads the Github configuration.
+Reads the GitHub configuration.
 
 | Method   | Path                         | Produces               |
 | :------- | :--------------------------- | :--------------------- |
@@ -66,7 +66,7 @@ Reads the Github configuration.
 ```
 $ curl \
     --header "X-Vault-Token: ..." \
-    https://vault.rocks/v1/auth/github/config
+    http://127.0.0.1:8200/v1/auth/github/config
 ```
 
 ### Sample Response
@@ -86,6 +86,142 @@ $ curl \
   "warnings": null
 }
 ```
+
+## Map GitHub Teams
+
+Map a list of policies to a team that exists in the configured GitHub organization.
+
+| Method   | Path                         | Produces               |
+| :------- | :--------------------------- | :--------------------- |
+| `POST`   | `/auth/github/map/teams/:team_name`   | `204 (empty body)`     |
+
+### Parameters
+
+- `key` `(string)` - GitHub team name in "slugified" format
+- `value` `(string)` - Comma separated list of policies to assign
+
+### Sample Payload
+
+```json
+{
+  "value": "dev-policy"
+}
+```
+
+### Sample Request
+
+```
+$ curl \
+    --header "X-Vault-Token: ..." \
+    --request POST \
+    --data @payload.json \
+    http://127.0.0.1:8200/v1/auth/github/map/teams/dev
+```
+
+
+## Read Team Mapping
+
+Reads the GitHub team policy mapping.
+
+| Method   | Path                         | Produces               |
+| :------- | :--------------------------- | :--------------------- |
+| `GET`    | `/auth/github/map/teams/:team_name`        | `200 application/json` |
+
+### Sample Request
+
+```
+$ curl \
+    --header "X-Vault-Token: ..." \
+    http://127.0.0.1:8200/v1/auth/github/map/teams/dev
+```
+
+### Sample Response
+
+```json
+{
+  "request_id": "812229d7-a82e-0b20-c35b-81ce8c1b9fa6",
+  "lease_id": "",
+  "renewable": false,
+  "lease_duration": 0,
+  "data": {
+    "key": "dev",
+    "value": "dev-policy"
+  },
+  "wrap_info": null,
+  "warnings": null,
+  "auth": null
+}
+```
+
+## Map GitHub Users
+
+Map a list of policies to a specific GitHub user exists in the configured
+organization.
+
+| Method   | Path                         | Produces               |
+| :------- | :--------------------------- | :--------------------- |
+| `POST`   | `/auth/github/map/users/:user_name`     | `204 (empty body)`     |
+
+### Parameters
+
+- `key` `(string)` - GitHub user name
+- `value` `(string)` - Comma separated list of policies to assign
+
+### Sample Payload
+
+```json
+{
+  "value": "sethvargo-policy"
+}
+```
+
+### Sample Request
+
+```
+$ curl \
+    --header "X-Vault-Token: ..." \
+    --request POST \
+    --data @payload.json \
+    http://127.0.0.1:8200/v1/auth/github/map/users/sethvargo
+```
+
+The user with username `sethvargo` will be assigned the `sethvargo-policy`
+policy **in addition to** any team policies.
+
+## Read User Mapping
+
+Reads the GitHub user policy mapping.
+
+| Method   | Path                         | Produces               |
+| :------- | :--------------------------- | :--------------------- |
+| `GET`    | `/auth/github/map/users/:user_name`        | `200 application/json` |
+
+### Sample Request
+
+```
+$ curl \
+    --header "X-Vault-Token: ..." \
+    http://127.0.0.1:8200/v1/auth/github/map/users/sethvargo
+```
+
+### Sample Response
+
+```json
+{
+  "request_id": "764b6f88-efba-51bd-ed62-cf1c9e80e37a",
+  "lease_id": "",
+  "renewable": false,
+  "lease_duration": 0,
+  "data": {
+    "key": "sethvargo",
+    "value": "sethvargo-policy"
+  },
+  "wrap_info": null,
+  "warnings": null,
+  "auth": null
+}
+```
+
 
 ## Login
 
@@ -112,7 +248,7 @@ Login using GitHub access token.
 ```
 $ curl \
     --request POST \
-    https://vault.rocks/v1/auth/github/login
+    http://127.0.0.1:8200/v1/auth/github/login
 ```
 
 ### Sample Response

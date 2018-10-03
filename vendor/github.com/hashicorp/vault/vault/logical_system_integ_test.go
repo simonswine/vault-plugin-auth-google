@@ -8,13 +8,21 @@ import (
 	"testing"
 	"time"
 
+	"github.com/go-test/deep"
+	"github.com/hashicorp/vault/api"
 	"github.com/hashicorp/vault/builtin/plugin"
+	"github.com/hashicorp/vault/helper/namespace"
 	"github.com/hashicorp/vault/helper/pluginutil"
 	vaulthttp "github.com/hashicorp/vault/http"
 	"github.com/hashicorp/vault/logical"
 	lplugin "github.com/hashicorp/vault/logical/plugin"
 	"github.com/hashicorp/vault/logical/plugin/mock"
 	"github.com/hashicorp/vault/vault"
+)
+
+const (
+	expectedEnvKey   = "FOO"
+	expectedEnvValue = "BAR"
 )
 
 func TestSystemBackend_Plugin_secret(t *testing.T) {
@@ -26,7 +34,7 @@ func TestSystemBackend_Plugin_secret(t *testing.T) {
 	// Make a request to lazy load the plugin
 	req := logical.TestRequest(t, logical.ReadOperation, "mock-0/internal")
 	req.ClientToken = core.Client.Token()
-	resp, err := core.HandleRequest(req)
+	resp, err := core.HandleRequest(namespace.RootContext(nil), req)
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
@@ -46,11 +54,7 @@ func TestSystemBackend_Plugin_secret(t *testing.T) {
 				t.Fatal(err)
 			}
 		}
-		sealed, err := core.Sealed()
-		if err != nil {
-			t.Fatalf("err checking seal status: %s", err)
-		}
-		if sealed {
+		if core.Sealed() {
 			t.Fatal("should not be sealed")
 		}
 		// Wait for active so post-unseal takes place
@@ -68,7 +72,7 @@ func TestSystemBackend_Plugin_auth(t *testing.T) {
 	// Make a request to lazy load the plugin
 	req := logical.TestRequest(t, logical.ReadOperation, "auth/mock-0/internal")
 	req.ClientToken = core.Client.Token()
-	resp, err := core.HandleRequest(req)
+	resp, err := core.HandleRequest(namespace.RootContext(nil), req)
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
@@ -88,11 +92,7 @@ func TestSystemBackend_Plugin_auth(t *testing.T) {
 				t.Fatal(err)
 			}
 		}
-		sealed, err := core.Sealed()
-		if err != nil {
-			t.Fatalf("err checking seal status: %s", err)
-		}
-		if sealed {
+		if core.Sealed() {
 			t.Fatal("should not be sealed")
 		}
 		// Wait for active so post-unseal takes place
@@ -108,13 +108,13 @@ func TestSystemBackend_Plugin_MismatchType(t *testing.T) {
 	core := cluster.Cores[0]
 
 	// Replace the plugin with a credential backend
-	vault.TestAddTestPlugin(t, core.Core, "mock-plugin", "TestBackend_PluginMainCredentials")
+	vault.TestAddTestPlugin(t, core.Core, "mock-plugin", "TestBackend_PluginMainCredentials", []string{}, "")
 
 	// Make a request to lazy load the now-credential plugin
 	// and expect an error
 	req := logical.TestRequest(t, logical.ReadOperation, "mock-0/internal")
 	req.ClientToken = core.Client.Token()
-	_, err := core.HandleRequest(req)
+	_, err := core.HandleRequest(namespace.RootContext(nil), req)
 	if err == nil {
 		t.Fatalf("expected error due to mismatch on error type: %s", err)
 	}
@@ -150,7 +150,7 @@ func testPlugin_CatalogRemoved(t *testing.T, btype logical.BackendType, testMoun
 	// Remove the plugin from the catalog
 	req := logical.TestRequest(t, logical.DeleteOperation, "sys/plugins/catalog/mock-plugin")
 	req.ClientToken = core.Client.Token()
-	resp, err := core.HandleRequest(req)
+	resp, err := core.HandleRequest(namespace.RootContext(nil), req)
 	if err != nil || (resp != nil && resp.IsError()) {
 		t.Fatalf("err:%v resp:%#v", err, resp)
 	}
@@ -167,17 +167,14 @@ func testPlugin_CatalogRemoved(t *testing.T, btype logical.BackendType, testMoun
 				t.Fatal(err)
 			}
 		}
-		sealed, err := core.Sealed()
-		if err != nil {
-			t.Fatalf("err checking seal status: %s", err)
-		}
-		if sealed {
+		if core.Sealed() {
 			t.Fatal("should not be sealed")
 		}
-		// Wait for active so post-unseal takes place
-		// If it fails, it means unseal process failed
-		vault.TestWaitActive(t, core.Core)
 	}
+
+	// Wait for active so post-unseal takes place
+	// If it fails, it means unseal process failed
+	vault.TestWaitActive(t, core.Core)
 
 	if testMount {
 		// Mount the plugin at the same path after plugin is re-added to the catalog
@@ -186,7 +183,7 @@ func testPlugin_CatalogRemoved(t *testing.T, btype logical.BackendType, testMoun
 		switch btype {
 		case logical.TypeLogical:
 			// Add plugin back to the catalog
-			vault.TestAddTestPlugin(t, core.Core, "mock-plugin", "TestBackend_PluginMainLogical")
+			vault.TestAddTestPlugin(t, core.Core, "mock-plugin", "TestBackend_PluginMainLogical", []string{}, "")
 			_, err = core.Client.Logical().Write("sys/mounts/mock-0", map[string]interface{}{
 				"type": "plugin",
 				"config": map[string]interface{}{
@@ -195,7 +192,7 @@ func testPlugin_CatalogRemoved(t *testing.T, btype logical.BackendType, testMoun
 			})
 		case logical.TypeCredential:
 			// Add plugin back to the catalog
-			vault.TestAddTestPlugin(t, core.Core, "mock-plugin", "TestBackend_PluginMainCredentials")
+			vault.TestAddTestPlugin(t, core.Core, "mock-plugin", "TestBackend_PluginMainCredentials", []string{}, "")
 			_, err = core.Client.Logical().Write("sys/auth/mock-0", map[string]interface{}{
 				"type":        "plugin",
 				"plugin_name": "mock-plugin",
@@ -238,7 +235,7 @@ func testPlugin_continueOnError(t *testing.T, btype logical.BackendType, mismatc
 	// Get the registered plugin
 	req := logical.TestRequest(t, logical.ReadOperation, "sys/plugins/catalog/mock-plugin")
 	req.ClientToken = core.Client.Token()
-	resp, err := core.HandleRequest(req)
+	resp, err := core.HandleRequest(namespace.RootContext(nil), req)
 	if err != nil || resp == nil || (resp != nil && resp.IsError()) {
 		t.Fatalf("err:%v resp:%#v", err, resp)
 	}
@@ -248,7 +245,7 @@ func testPlugin_continueOnError(t *testing.T, btype logical.BackendType, mismatc
 		t.Fatal("invalid command")
 	}
 
-	// Trigger a sha256 mistmatch or missing plugin error
+	// Trigger a sha256 mismatch or missing plugin error
 	if mismatch {
 		req = logical.TestRequest(t, logical.UpdateOperation, "sys/plugins/catalog/mock-plugin")
 		req.Data = map[string]interface{}{
@@ -256,7 +253,7 @@ func testPlugin_continueOnError(t *testing.T, btype logical.BackendType, mismatc
 			"command": filepath.Base(command),
 		}
 		req.ClientToken = core.Client.Token()
-		resp, err = core.HandleRequest(req)
+		resp, err = core.HandleRequest(namespace.RootContext(nil), req)
 		if err != nil || (resp != nil && resp.IsError()) {
 			t.Fatalf("err:%v resp:%#v", err, resp)
 		}
@@ -279,24 +276,21 @@ func testPlugin_continueOnError(t *testing.T, btype logical.BackendType, mismatc
 				t.Fatal(err)
 			}
 		}
-		sealed, err := core.Sealed()
-		if err != nil {
-			t.Fatalf("err checking seal status: %s", err)
-		}
-		if sealed {
+		if core.Sealed() {
 			t.Fatal("should not be sealed")
 		}
-		// Wait for active so post-unseal takes place
-		// If it fails, it means unseal process failed
-		vault.TestWaitActive(t, core.Core)
 	}
+
+	// Wait for active so post-unseal takes place
+	// If it fails, it means unseal process failed
+	vault.TestWaitActive(t, core.Core)
 
 	// Re-add the plugin to the catalog
 	switch btype {
 	case logical.TypeLogical:
-		vault.TestAddTestPluginTempDir(t, core.Core, "mock-plugin", "TestBackend_PluginMainLogical", cluster.TempDir)
+		vault.TestAddTestPlugin(t, core.Core, "mock-plugin", "TestBackend_PluginMainLogical", []string{}, cluster.TempDir)
 	case logical.TypeCredential:
-		vault.TestAddTestPluginTempDir(t, core.Core, "mock-plugin", "TestBackend_PluginMainCredentials", cluster.TempDir)
+		vault.TestAddTestPlugin(t, core.Core, "mock-plugin", "TestBackend_PluginMainCredentials", []string{}, cluster.TempDir)
 	}
 
 	// Reload the plugin
@@ -305,7 +299,7 @@ func testPlugin_continueOnError(t *testing.T, btype logical.BackendType, mismatc
 		"plugin": "mock-plugin",
 	}
 	req.ClientToken = core.Client.Token()
-	resp, err = core.HandleRequest(req)
+	resp, err = core.HandleRequest(namespace.RootContext(nil), req)
 	if err != nil || (resp != nil && resp.IsError()) {
 		t.Fatalf("err:%v resp:%#v", err, resp)
 	}
@@ -321,7 +315,7 @@ func testPlugin_continueOnError(t *testing.T, btype logical.BackendType, mismatc
 
 	req = logical.TestRequest(t, logical.ReadOperation, reqPath)
 	req.ClientToken = core.Client.Token()
-	resp, err = core.HandleRequest(req)
+	resp, err = core.HandleRequest(namespace.RootContext(nil), req)
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
@@ -340,7 +334,7 @@ func TestSystemBackend_Plugin_autoReload(t *testing.T) {
 	req := logical.TestRequest(t, logical.UpdateOperation, "mock-0/internal")
 	req.ClientToken = core.Client.Token()
 	req.Data["value"] = "baz"
-	resp, err := core.HandleRequest(req)
+	resp, err := core.HandleRequest(namespace.RootContext(nil), req)
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
@@ -351,7 +345,7 @@ func TestSystemBackend_Plugin_autoReload(t *testing.T) {
 	// Call errors/rpc endpoint to trigger reload
 	req = logical.TestRequest(t, logical.ReadOperation, "mock-0/errors/rpc")
 	req.ClientToken = core.Client.Token()
-	resp, err = core.HandleRequest(req)
+	resp, err = core.HandleRequest(namespace.RootContext(nil), req)
 	if err == nil {
 		t.Fatalf("expected error from error/rpc request")
 	}
@@ -359,7 +353,7 @@ func TestSystemBackend_Plugin_autoReload(t *testing.T) {
 	// Check internal value to make sure it's reset
 	req = logical.TestRequest(t, logical.ReadOperation, "mock-0/internal")
 	req.ClientToken = core.Client.Token()
-	resp, err = core.HandleRequest(req)
+	resp, err = core.HandleRequest(namespace.RootContext(nil), req)
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
@@ -387,17 +381,14 @@ func TestSystemBackend_Plugin_SealUnseal(t *testing.T) {
 				t.Fatal(err)
 			}
 		}
-		sealed, err := core.Sealed()
-		if err != nil {
-			t.Fatalf("err checking seal status: %s", err)
-		}
-		if sealed {
+		if core.Sealed() {
 			t.Fatal("should not be sealed")
 		}
-		// Wait for active so post-unseal takes place
-		// If it fails, it means unseal process failed
-		vault.TestWaitActive(t, core.Core)
 	}
+
+	// Wait for active so post-unseal takes place
+	// If it fails, it means unseal process failed
+	vault.TestWaitActive(t, cluster.Cores[0].Core)
 }
 
 func TestSystemBackend_Plugin_reload(t *testing.T) {
@@ -494,7 +485,7 @@ func testSystemBackendMock(t *testing.T, numCores, numMounts int, backendType lo
 
 	switch backendType {
 	case logical.TypeLogical:
-		vault.TestAddTestPluginTempDir(t, core.Core, "mock-plugin", "TestBackend_PluginMainLogical", tempDir)
+		vault.TestAddTestPlugin(t, core.Core, "mock-plugin", "TestBackend_PluginMainLogical", []string{}, tempDir)
 		for i := 0; i < numMounts; i++ {
 			// Alternate input styles for plugin_name on every other mount
 			options := map[string]interface{}{
@@ -516,7 +507,7 @@ func testSystemBackendMock(t *testing.T, numCores, numMounts int, backendType lo
 			}
 		}
 	case logical.TypeCredential:
-		vault.TestAddTestPluginTempDir(t, core.Core, "mock-plugin", "TestBackend_PluginMainCredentials", tempDir)
+		vault.TestAddTestPlugin(t, core.Core, "mock-plugin", "TestBackend_PluginMainCredentials", []string{}, tempDir)
 		for i := 0; i < numMounts; i++ {
 			// Alternate input styles for plugin_name on every other mount
 			options := map[string]interface{}{
@@ -544,9 +535,61 @@ func testSystemBackendMock(t *testing.T, numCores, numMounts int, backendType lo
 	return cluster
 }
 
+func TestSystemBackend_Plugin_Env(t *testing.T) {
+	kvPair := fmt.Sprintf("%s=%s", expectedEnvKey, expectedEnvValue)
+	cluster := testSystemBackend_SingleCluster_Env(t, []string{kvPair})
+	defer cluster.Cleanup()
+}
+
+// testSystemBackend_SingleCluster_Env is a helper func that returns a single
+// cluster and a single mounted plugin logical backend.
+func testSystemBackend_SingleCluster_Env(t *testing.T, env []string) *vault.TestCluster {
+	coreConfig := &vault.CoreConfig{
+		LogicalBackends: map[string]logical.Factory{
+			"plugin": plugin.Factory,
+		},
+	}
+
+	// Create a tempdir, cluster.Cleanup will clean up this directory
+	tempDir, err := ioutil.TempDir("", "vault-test-cluster")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	cluster := vault.NewTestCluster(t, coreConfig, &vault.TestClusterOptions{
+		HandlerFunc:        vaulthttp.Handler,
+		KeepStandbysSealed: true,
+		NumCores:           1,
+		TempDir:            tempDir,
+	})
+	cluster.Start()
+
+	core := cluster.Cores[0]
+	vault.TestWaitActive(t, core.Core)
+	client := core.Client
+
+	os.Setenv(pluginutil.PluginCACertPEMEnv, cluster.CACertPEMFile)
+
+	vault.TestAddTestPlugin(t, core.Core, "mock-plugin", "TestBackend_PluginMainEnv", env, tempDir)
+	options := map[string]interface{}{
+		"type":        "plugin",
+		"plugin_name": "mock-plugin",
+	}
+
+	resp, err := client.Logical().Write("sys/mounts/mock", options)
+	if err != nil {
+		t.Fatalf("err: %v", err)
+	}
+	if resp != nil {
+		t.Fatalf("bad: %v", resp)
+	}
+
+	return cluster
+}
+
 func TestBackend_PluginMainLogical(t *testing.T) {
 	args := []string{}
-	if os.Getenv(pluginutil.PluginUnwrapTokenEnv) == "" && os.Getenv(pluginutil.PluginMetadaModeEnv) != "true" {
+	if os.Getenv(pluginutil.PluginUnwrapTokenEnv) == "" && os.Getenv(pluginutil.PluginMetadataModeEnv) != "true" {
 		return
 	}
 
@@ -575,7 +618,7 @@ func TestBackend_PluginMainLogical(t *testing.T) {
 
 func TestBackend_PluginMainCredentials(t *testing.T) {
 	args := []string{}
-	if os.Getenv(pluginutil.PluginUnwrapTokenEnv) == "" && os.Getenv(pluginutil.PluginMetadaModeEnv) != "true" {
+	if os.Getenv(pluginutil.PluginUnwrapTokenEnv) == "" && os.Getenv(pluginutil.PluginMetadataModeEnv) != "true" {
 		return
 	}
 
@@ -599,5 +642,180 @@ func TestBackend_PluginMainCredentials(t *testing.T) {
 	})
 	if err != nil {
 		t.Fatal(err)
+	}
+}
+
+// TestBackend_PluginMainEnv is a mock plugin that simply checks for the existence of FOO env var.
+func TestBackend_PluginMainEnv(t *testing.T) {
+	args := []string{}
+	if os.Getenv(pluginutil.PluginUnwrapTokenEnv) == "" && os.Getenv(pluginutil.PluginMetadataModeEnv) != "true" {
+		return
+	}
+
+	// Check on actual vs expected env var
+	actual := os.Getenv(expectedEnvKey)
+	if actual != expectedEnvValue {
+		t.Fatalf("expected: %q, got: %q", expectedEnvValue, actual)
+	}
+
+	caPEM := os.Getenv(pluginutil.PluginCACertPEMEnv)
+	if caPEM == "" {
+		t.Fatal("CA cert not passed in")
+	}
+	args = append(args, fmt.Sprintf("--ca-cert=%s", caPEM))
+
+	apiClientMeta := &pluginutil.APIClientMeta{}
+	flags := apiClientMeta.FlagSet()
+	flags.Parse(args)
+	tlsConfig := apiClientMeta.GetTLSConfig()
+	tlsProviderFunc := pluginutil.VaultPluginTLSProvider(tlsConfig)
+
+	factoryFunc := mock.FactoryType(logical.TypeLogical)
+
+	err := lplugin.Serve(&lplugin.ServeOpts{
+		BackendFactoryFunc: factoryFunc,
+		TLSProviderFunc:    tlsProviderFunc,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestSystemBackend_InternalUIResultantACL(t *testing.T) {
+	cluster := vault.NewTestCluster(t, nil, &vault.TestClusterOptions{
+		HandlerFunc: vaulthttp.Handler,
+	})
+	cluster.Start()
+	defer cluster.Cleanup()
+	client := cluster.Cores[0].Client
+
+	resp, err := client.Auth().Token().Create(&api.TokenCreateRequest{
+		Policies: []string{"default"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp == nil {
+		t.Fatal("nil response")
+	}
+	if resp.Auth == nil {
+		t.Fatal("nil auth")
+	}
+	if resp.Auth.ClientToken == "" {
+		t.Fatal("empty client token")
+	}
+
+	client.SetToken(resp.Auth.ClientToken)
+
+	resp, err = client.Logical().Read("sys/internal/ui/resultant-acl")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp == nil {
+		t.Fatal("nil response")
+	}
+	if resp.Data == nil {
+		t.Fatal("nil data")
+	}
+
+	exp := map[string]interface{}{
+		"exact_paths": map[string]interface{}{
+			"auth/token/lookup-self": map[string]interface{}{
+				"capabilities": []interface{}{
+					"read",
+				},
+			},
+			"auth/token/renew-self": map[string]interface{}{
+				"capabilities": []interface{}{
+					"update",
+				},
+			},
+			"auth/token/revoke-self": map[string]interface{}{
+				"capabilities": []interface{}{
+					"update",
+				},
+			},
+			"sys/capabilities-self": map[string]interface{}{
+				"capabilities": []interface{}{
+					"update",
+				},
+			},
+			"sys/control-group/request": map[string]interface{}{
+				"capabilities": []interface{}{
+					"update",
+				},
+			},
+			"sys/internal/ui/resultant-acl": map[string]interface{}{
+				"capabilities": []interface{}{
+					"read",
+				},
+			},
+			"sys/leases/lookup": map[string]interface{}{
+				"capabilities": []interface{}{
+					"update",
+				},
+			},
+			"sys/leases/renew": map[string]interface{}{
+				"capabilities": []interface{}{
+					"update",
+				},
+			},
+			"sys/renew": map[string]interface{}{
+				"capabilities": []interface{}{
+					"update",
+				},
+			},
+			"sys/tools/hash": map[string]interface{}{
+				"capabilities": []interface{}{
+					"update",
+				},
+			},
+			"sys/tools/random": map[string]interface{}{
+				"capabilities": []interface{}{
+					"update",
+				},
+			},
+			"sys/wrapping/lookup": map[string]interface{}{
+				"capabilities": []interface{}{
+					"update",
+				},
+			},
+			"sys/wrapping/unwrap": map[string]interface{}{
+				"capabilities": []interface{}{
+					"update",
+				},
+			},
+			"sys/wrapping/wrap": map[string]interface{}{
+				"capabilities": []interface{}{
+					"update",
+				},
+			},
+		},
+		"glob_paths": map[string]interface{}{
+			"cubbyhole/": map[string]interface{}{
+				"capabilities": []interface{}{
+					"create",
+					"delete",
+					"list",
+					"read",
+					"update",
+				},
+			},
+			"sys/tools/hash/": map[string]interface{}{
+				"capabilities": []interface{}{
+					"update",
+				},
+			},
+			"sys/tools/random/": map[string]interface{}{
+				"capabilities": []interface{}{
+					"update",
+				},
+			},
+		},
+		"root": false,
+	}
+
+	if diff := deep.Equal(resp.Data, exp); diff != nil {
+		t.Fatal(diff)
 	}
 }

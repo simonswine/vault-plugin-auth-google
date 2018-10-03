@@ -1,6 +1,8 @@
 package vault
 
 import (
+	"context"
+
 	"github.com/mitchellh/go-testing-interface"
 )
 
@@ -14,36 +16,36 @@ type TestSealOpts struct {
 	RecoveryKeysDisabled bool
 }
 
-func NewTestSeal(t testing.T, opts *TestSealOpts) Seal {
-	return &DefaultSeal{}
-}
-
 func testCoreUnsealedWithConfigs(t testing.T, barrierConf, recoveryConf *SealConfig) (*Core, [][]byte, [][]byte, string) {
-	seal := NewTestSeal(t, nil)
+	t.Helper()
+	var opts *TestSealOpts
+	if recoveryConf == nil {
+		opts = &TestSealOpts{
+			StoredKeysDisabled:   true,
+			RecoveryKeysDisabled: true,
+		}
+	}
+	seal := NewTestSeal(t, opts)
 	core := TestCoreWithSeal(t, seal, false)
-	result, err := core.Initialize(&InitParams{
+	result, err := core.Initialize(context.Background(), &InitParams{
 		BarrierConfig:  barrierConf,
 		RecoveryConfig: recoveryConf,
 	})
 	if err != nil {
 		t.Fatalf("err: %s", err)
 	}
-	err = core.UnsealWithStoredKeys()
+	err = core.UnsealWithStoredKeys(context.Background())
 	if err != nil {
 		t.Fatalf("err: %s", err)
 	}
-	if sealed, _ := core.Sealed(); sealed {
+	if core.Sealed() {
 		for _, key := range result.SecretShares {
 			if _, err := core.Unseal(TestKeyCopy(key)); err != nil {
 				t.Fatalf("unseal err: %s", err)
 			}
 		}
 
-		sealed, err = core.Sealed()
-		if err != nil {
-			t.Fatalf("err checking seal status: %s", err)
-		}
-		if sealed {
+		if core.Sealed() {
 			t.Fatal("should not be sealed")
 		}
 	}
@@ -61,25 +63,27 @@ func testSealDefConfigs() (*SealConfig, *SealConfig) {
 func TestCoreUnsealedWithConfigSealOpts(t testing.T, barrierConf, recoveryConf *SealConfig, sealOpts *TestSealOpts) (*Core, [][]byte, [][]byte, string) {
 	seal := NewTestSeal(t, sealOpts)
 	core := TestCoreWithSeal(t, seal, false)
-	result, err := core.Initialize(&InitParams{
+	result, err := core.Initialize(context.Background(), &InitParams{
 		BarrierConfig:  barrierConf,
 		RecoveryConfig: recoveryConf,
 	})
 	if err != nil {
 		t.Fatalf("err: %s", err)
 	}
-	for _, key := range result.SecretShares {
-		if _, err := core.Unseal(TestKeyCopy(key)); err != nil {
-			t.Fatalf("unseal err: %s", err)
-		}
-	}
-
-	sealed, err := core.Sealed()
+	err = core.UnsealWithStoredKeys(context.Background())
 	if err != nil {
-		t.Fatalf("err checking seal status: %s", err)
+		t.Fatalf("err: %s", err)
 	}
-	if sealed {
-		t.Fatal("should not be sealed")
+	if core.Sealed() {
+		for _, key := range result.SecretShares {
+			if _, err := core.Unseal(TestKeyCopy(key)); err != nil {
+				t.Fatalf("unseal err: %s", err)
+			}
+		}
+
+		if core.Sealed() {
+			t.Fatal("should not be sealed")
+		}
 	}
 
 	return core, result.SecretShares, result.RecoveryShares, result.RootToken

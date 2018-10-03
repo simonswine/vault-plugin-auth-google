@@ -5,8 +5,8 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"strings"
 	"testing"
-	"time"
 )
 
 func init() {
@@ -95,6 +95,30 @@ func TestClientToken(t *testing.T) {
 	}
 }
 
+func TestClientBadToken(t *testing.T) {
+	handler := func(w http.ResponseWriter, req *http.Request) {}
+
+	config, ln := testHTTPServer(t, http.HandlerFunc(handler))
+	defer ln.Close()
+
+	client, err := NewClient(config)
+	if err != nil {
+		t.Fatalf("err: %s", err)
+	}
+
+	client.SetToken("foo")
+	_, err = client.RawRequest(client.NewRequest("PUT", "/"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	client.SetToken("foo\u007f")
+	_, err = client.RawRequest(client.NewRequest("PUT", "/"))
+	if err == nil || !strings.Contains(err.Error(), "printable") {
+		t.Fatalf("expected error due to bad token")
+	}
+}
+
 func TestClientRedirect(t *testing.T) {
 	primary := func(w http.ResponseWriter, req *http.Request) {
 		w.Write([]byte("test"))
@@ -171,28 +195,58 @@ func TestClientEnvSettings(t *testing.T) {
 	}
 }
 
+func TestParsingRateAndBurst(t *testing.T) {
+	var (
+		correctFormat                    = "400:400"
+		observedRate, observedBurst, err = parseRateLimit(correctFormat)
+		expectedRate, expectedBurst      = float64(400), 400
+	)
+	if err != nil {
+		t.Error(err)
+	}
+	if expectedRate != observedRate {
+		t.Errorf("Expected rate %v but found %v", expectedRate, observedRate)
+	}
+	if expectedBurst != observedBurst {
+		t.Errorf("Expected burst %v but found %v", expectedRate, observedRate)
+	}
+}
+
+func TestParsingRateOnly(t *testing.T) {
+	var (
+		correctFormat                    = "400"
+		observedRate, observedBurst, err = parseRateLimit(correctFormat)
+		expectedRate, expectedBurst      = float64(400), 400
+	)
+	if err != nil {
+		t.Error(err)
+	}
+	if expectedRate != observedRate {
+		t.Errorf("Expected rate %v but found %v", expectedRate, observedRate)
+	}
+	if expectedBurst != observedBurst {
+		t.Errorf("Expected burst %v but found %v", expectedRate, observedRate)
+	}
+}
+
+func TestParsingErrorCase(t *testing.T) {
+	var incorrectFormat = "foobar"
+	var _, _, err = parseRateLimit(incorrectFormat)
+	if err == nil {
+		t.Error("Expected error, found no error")
+	}
+}
+
 func TestClientTimeoutSetting(t *testing.T) {
 	oldClientTimeout := os.Getenv(EnvVaultClientTimeout)
 	os.Setenv(EnvVaultClientTimeout, "10")
 	defer os.Setenv(EnvVaultClientTimeout, oldClientTimeout)
 	config := DefaultConfig()
 	config.ReadEnvironment()
-	client, err := NewClient(config)
+	_, err := NewClient(config)
 	if err != nil {
 		t.Fatal(err)
 	}
-	_ = client.NewRequest("PUT", "/")
-	if client.config.HttpClient.Timeout != time.Second*10 {
-		t.Fatalf("error setting client timeout using env variable")
-	}
-
-	// Setting custom client timeout for a new request
-	client.SetClientTimeout(time.Second * 20)
-	_ = client.NewRequest("PUT", "/")
-	if client.config.HttpClient.Timeout != time.Second*20 {
-		t.Fatalf("error setting client timeout using SetClientTimeout")
-	}
-
 }
 
 type roundTripperFunc func(*http.Request) (*http.Response, error)
