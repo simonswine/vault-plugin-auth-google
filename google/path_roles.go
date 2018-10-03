@@ -1,6 +1,7 @@
 package google
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"strings"
@@ -70,33 +71,33 @@ var roleFieldSchema = map[string]*framework.FieldSchema{
 	},
 }
 
-func (b *backend) pathRoleExistenceCheck(req *logical.Request, data *framework.FieldData) (bool, error) {
-	entry, err := b.role(req.Storage, data.Get("name").(string))
+func (b *backend) pathRoleExistenceCheck(ctx context.Context, req *logical.Request, data *framework.FieldData) (bool, error) {
+	entry, err := b.role(ctx, req.Storage, data.Get("name").(string))
 	if err != nil {
 		return false, err
 	}
 	return entry != nil, nil
 }
 
-func (b *backend) pathRoleDelete(req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
+func (b *backend) pathRoleDelete(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
 	name := data.Get("name").(string)
 	if name == "" {
 		return logical.ErrorResponse(errEmptyRoleName), nil
 	}
 
-	if err := req.Storage.Delete(fmt.Sprintf("role/%s", name)); err != nil {
+	if err := req.Storage.Delete(ctx, fmt.Sprintf("role/%s", name)); err != nil {
 		return nil, err
 	}
 	return nil, nil
 }
 
-func (b *backend) pathRoleRead(req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
+func (b *backend) pathRoleRead(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
 	name := data.Get("name").(string)
 	if name == "" {
 		return logical.ErrorResponse(errEmptyRoleName), nil
 	}
 
-	role, err := b.role(req.Storage, name)
+	role, err := b.role(ctx, req.Storage, name)
 	if err != nil {
 		return nil, err
 	} else if role == nil {
@@ -118,13 +119,13 @@ func (b *backend) pathRoleRead(req *logical.Request, data *framework.FieldData) 
 	}, nil
 }
 
-func (b *backend) pathRoleCreateUpdate(req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
+func (b *backend) pathRoleCreateUpdate(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
 	name := strings.ToLower(data.Get("name").(string))
 	if name == "" {
 		return logical.ErrorResponse(errEmptyRoleName), nil
 	}
 
-	r, err := b.role(req.Storage, name)
+	r, err := b.role(ctx, req.Storage, name)
 	if err != nil {
 		return nil, err
 	}
@@ -135,11 +136,11 @@ func (b *backend) pathRoleCreateUpdate(req *logical.Request, data *framework.Fie
 	if err := r.updateRole(b.System(), req.Operation, data); err != nil {
 		return logical.ErrorResponse(err.Error()), nil
 	}
-	return b.storeRole(req.Storage, name, r)
+	return b.storeRole(ctx, req.Storage, name, r)
 }
 
-func (b *backend) pathRoleList(req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
-	roles, err := req.Storage.List("role/")
+func (b *backend) pathRoleList(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
+	roles, err := req.Storage.List(ctx, "role/")
 	if err != nil {
 		return nil, err
 	}
@@ -147,8 +148,8 @@ func (b *backend) pathRoleList(req *logical.Request, data *framework.FieldData) 
 }
 
 // role reads a role from storage.  Returns nil, nil if the role doesn't exist.
-func (b *backend) role(s logical.Storage, name string) (*role, error) {
-	entry, err := s.Get(fmt.Sprintf("role/%s", name))
+func (b *backend) role(ctx context.Context, s logical.Storage, name string) (*role, error) {
+	entry, err := s.Get(ctx, fmt.Sprintf("role/%s", name))
 	if err != nil {
 		return nil, err
 	}
@@ -167,7 +168,7 @@ func (b *backend) role(s logical.Storage, name string) (*role, error) {
 // storeRole saves the role to storage.
 // The returned response may contain either warnings or an error response,
 // but will be nil if error is not nil
-func (b *backend) storeRole(s logical.Storage, roleName string, role *role) (*logical.Response, error) {
+func (b *backend) storeRole(ctx context.Context, s logical.Storage, roleName string, role *role) (*logical.Response, error) {
 	var resp *logical.Response
 	warnings, err := role.validate(b.System())
 
@@ -185,7 +186,7 @@ func (b *backend) storeRole(s logical.Storage, roleName string, role *role) (*lo
 		return nil, err
 	}
 
-	if err := s.Put(entry); err != nil {
+	if err := s.Put(ctx, entry); err != nil {
 		return nil, err
 	}
 

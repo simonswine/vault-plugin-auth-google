@@ -1,6 +1,7 @@
 package google
 
 import (
+	"context"
 	"fmt"
 
 	"golang.org/x/oauth2"
@@ -17,7 +18,7 @@ const (
 	configEntry                    = "config"
 )
 
-func (b *backend) pathConfigWrite(req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
+func (b *backend) pathConfigWrite(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
 	var (
 		clientID     = data.Get(clientIDConfigPropertyName).(string)
 		clientSecret = data.Get(clientSecretConfigPropertyName).(string)
@@ -31,11 +32,11 @@ func (b *backend) pathConfigWrite(req *logical.Request, data *framework.FieldDat
 		return nil, err
 	}
 
-	return nil, req.Storage.Put(entry)
+	return nil, req.Storage.Put(ctx, entry)
 }
 
-func (b *backend) pathConfigRead(req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
-	config, err := b.config(req.Storage)
+func (b *backend) pathConfigRead(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
+	config, err := b.config(ctx, req.Storage)
 	if err != nil {
 		return nil, err
 	}
@@ -54,8 +55,8 @@ func (b *backend) pathConfigRead(req *logical.Request, data *framework.FieldData
 }
 
 // Config returns the configuration for this backend.
-func (b *backend) config(s logical.Storage) (*config, error) {
-	entry, err := s.Get(configEntry)
+func (b *backend) config(ctx context.Context, s logical.Storage) (*config, error) {
+	entry, err := s.Get(ctx, configEntry)
 	if err != nil {
 		return nil, err
 	}
