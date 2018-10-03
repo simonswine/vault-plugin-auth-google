@@ -1,0 +1,8 @@
+bin/
+vendor/
+tags/
+test/
+google-auth-vault-plugin
+.git/
+Makefile
+Dockerfile
