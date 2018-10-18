@@ -1,0 +1,25 @@
+From aed27710cfa369644e7b8bf1230f95016ee9fc82 Mon Sep 17 00:00:00 2001
+From: Christian Simon <simon@swine.de>
+Date: Thu, 18 Oct 2018 16:09:21 +0100
+Subject: [PATCH 2/2] Disable UI auth backends apart from token and google
+
+---
+ ui/app/helpers/supported-auth-backends.js | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/ui/app/helpers/supported-auth-backends.js b/ui/app/helpers/supported-auth-backends.js
+index b027dca93..37cc0e7ff 100644
+--- a/ui/app/helpers/supported-auth-backends.js
++++ b/ui/app/helpers/supported-auth-backends.js
+@@ -52,7 +52,7 @@ const SUPPORTED_AUTH_BACKENDS = [
+ ];
+ 
+ export function supportedAuthBackends() {
+-  return SUPPORTED_AUTH_BACKENDS;
++  return [SUPPORTED_AUTH_BACKENDS[5], SUPPORTED_AUTH_BACKENDS[0]];
+ }
+ 
+ export default buildHelper(supportedAuthBackends);
+-- 
+2.19.1
+
