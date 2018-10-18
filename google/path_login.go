@@ -9,7 +9,6 @@ import (
 	"google.golang.org/api/admin/directory/v1"
 	goauth "google.golang.org/api/oauth2/v2"
 
-	"github.com/hashicorp/vault/helper/policyutil"
 	"github.com/hashicorp/vault/logical"
 	"github.com/hashicorp/vault/logical/framework"
 )
@@ -17,42 +16,58 @@ import (
 const (
 	loginPath                   = "login"
 	googleAuthCodeParameterName = "code"
-	roleParameterName           = "role"
+	stateParameterName          = "state"
 )
 
 func (b *backend) pathLogin(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
 	code := data.Get(googleAuthCodeParameterName).(string)
-	roleName := data.Get(roleParameterName).(string)
-	role, err := b.role(ctx, req.Storage, roleName)
-	if err != nil {
-		return nil, err
-	}
-	if role == nil {
-		return logical.ErrorResponse(fmt.Sprintf("role '%s' not found", roleName)), nil
-	}
 
 	config, err := b.config(ctx, req.Storage)
 	if err != nil {
 		return nil, err
 	}
-	if config == nil {
-		return logical.ErrorResponse("missing config"), nil
+
+	authType := typeCLI
+
+	// use web config if state is set
+	if stateValue := data.Get(stateParameterName).(string); len(stateValue) > 0 {
+		statePath := b.statePath(stateValue)
+
+		state, err := b.state(ctx, req, statePath)
+		if err != nil {
+			return nil, err
+		}
+
+		// no matching state found
+		if state == nil {
+			return logical.ErrorResponse("this state can't be found or has already been used"), nil
+		}
+
+		authType = state.Type
+
+		if err := b.deleteState(ctx, req, statePath); err != nil {
+			return nil, err
+		}
+
+		if err := b.cleanupStates(ctx, req); err != nil {
+			return nil, err
+		}
 	}
 
-	googleConfig := config.oauth2Config()
-	token, err := googleConfig.Exchange(oauth2.NoContext, code)
+	oauth2config := config.oauth2Config(authType)
+
+	token, err := b.user.oauth2Exchange(ctx, code, oauth2config)
 	if err != nil {
 		return nil, err
 	}
 
-	user, groups, err := b.authenticate(config, token)
+	user, groups, err := b.authenticate(ctx, config, token)
 	if err != nil {
 		return nil, err
 	}
 
-	policies, err := b.authorise(req.Storage, role, user, groups)
-	if err != nil {
-		return logical.ErrorResponse(err.Error()), nil
+	if !config.authorised(user, groups) {
+		return logical.ErrorResponse("user is not allowed to login"), nil
 	}
 
 	encodedToken, err := encodeToken(token)
@@ -60,51 +75,48 @@ func (b *backend) pathLogin(ctx context.Context, req *logical.Request, data *fra
 		return nil, err
 	}
 
-	return &logical.Response{
+	ttl, maxTTL := config.ttlForType(authType)
+
+	resp := &logical.Response{
 		Auth: &logical.Auth{
 			InternalData: map[string]interface{}{
 				"token": encodedToken,
-				"role":  roleName,
+				"type":  authType,
 			},
-			Policies: policies,
 			Metadata: map[string]string{
 				"username": user.Email,
 				"domain":   user.Hd,
 			},
 			DisplayName: user.Email,
 			LeaseOptions: logical.LeaseOptions{
-				TTL:       role.TTL,
+				TTL:       ttl,
+				MaxTTL:    maxTTL,
 				Renewable: true,
 			},
+			Alias: &logical.Alias{
+				Name: user.Email,
+				Metadata: map[string]string{
+					"first_name": user.GivenName,
+					"last_name":  user.FamilyName,
+				},
+			},
 		},
-	}, nil
+	}
+
+	setGroups(resp.Auth, user, groups)
+
+	return resp, nil
 }
 
-func (b *backend) authRenew(ctx context.Context, req *logical.Request, d *framework.FieldData) (*logical.Response, error) {
+func (b *backend) pathRenew(ctx context.Context, req *logical.Request, d *framework.FieldData) (*logical.Response, error) {
 	encodedToken, ok := req.Auth.InternalData["token"].(string)
 	if !ok {
 		return nil, errors.New("no refresh token from previous login")
 	}
 
-	roleName, ok := req.Auth.InternalData["role"].(string)
-	if !ok {
-		return nil, errors.New("no role name from previous login")
-	}
-
-	role, err := b.role(ctx, req.Storage, roleName)
-	if err != nil {
-		return nil, err
-	}
-	if role == nil {
-		return nil, fmt.Errorf("role '%s' not found", roleName)
-	}
-
 	config, err := b.config(ctx, req.Storage)
 	if err != nil {
 		return nil, err
-	}
-	if config == nil {
-		return logical.ErrorResponse("missing config"), nil
 	}
 
 	token, err := decodeToken(encodedToken)
@@ -112,69 +124,52 @@ func (b *backend) authRenew(ctx context.Context, req *logical.Request, d *framew
 		return nil, err
 	}
 
-	user, groups, err := b.authenticate(config, token)
+	user, groups, err := b.authenticate(ctx, config, token)
 	if err != nil {
 		return nil, err
 	}
 
-	policies, err := b.authorise(req.Storage, role, user, groups)
-	if err != nil {
-		return nil, err
+	if !config.authorised(user, groups) {
+		return logical.ErrorResponse("user is not allowed to login"), nil
 	}
 
-	if !policyutil.EquivalentPolicies(policies, req.Auth.TokenPolicies) {
-		return nil, fmt.Errorf("policies have changed, not renewing")
-	}
+	resp := &logical.Response{Auth: req.Auth}
 
-	return framework.LeaseExtend(role.TTL, role.MaxTTL, b.System())(ctx, req, d)
+	// Remove old aliases
+	resp.Auth.GroupAliases = nil
+
+	setGroups(resp.Auth, user, groups)
+
+	return resp, nil
 }
 
-func (b *backend) authenticate(config *config, token *oauth2.Token) (*goauth.Userinfoplus, []string, error) {
-	client := config.oauth2Config().Client(context.Background(), token)
-	userService, err := goauth.New(client)
+func setGroups(auth *logical.Auth, user *goauth.Userinfoplus, groups []*admin.Group) {
+	// add every associated group
+	for _, group := range groups {
+		auth.GroupAliases = append(auth.GroupAliases, &logical.Alias{
+			Name: group.Email,
+			Metadata: map[string]string{
+				"name": group.Name,
+			},
+		})
+	}
+
+	// add a group alias for it's domain
+	auth.GroupAliases = append(auth.GroupAliases, &logical.Alias{
+		Name: fmt.Sprintf("@%s", user.Hd),
+	})
+}
+
+func (b *backend) authenticate(ctx context.Context, config *config, token *oauth2.Token) (*goauth.Userinfoplus, []*admin.Group, error) {
+	user, err := b.user.authUser(ctx, config.oauth2Config(""), token)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	user, err := goauth.NewUserinfoV2MeService(userService).Get().Do()
+	groups, err := b.groups.groupsPerUser(ctx, config, user.Email)
 	if err != nil {
 		return nil, nil, err
-	}
-
-	groups := []string{}
-	if config.FetchGroups {
-		groupsService, err := admin.New(client)
-		if err != nil {
-			return nil, nil, err
-		}
-
-		request := groupsService.Groups.List()
-		request.UserKey(user.Email)
-		response, err := request.Do()
-		if err != nil {
-			return nil, nil, err
-		}
-
-		for _, group := range response.Groups {
-			groups = append(groups, group.Email)
-		}
 	}
 
 	return user, groups, nil
-}
-
-func (b *backend) authorise(storage logical.Storage, role *role, user *goauth.Userinfoplus, groups []string) ([]string, error) {
-	if user.Hd != role.BoundDomain {
-		return nil, fmt.Errorf("user is not part of required domain")
-	}
-
-	// Is this user in one of the bound groups for this role?
-	isGroupMember := strSliceHasIntersection(groups, role.BoundGroups)
-	isUserMember := strSliceHasIntersection([]string{user.Email}, role.BoundEmails)
-
-	if !isGroupMember && !isUserMember {
-		return nil, fmt.Errorf("user is not allowed to use this role")
-	}
-
-	return role.Policies, nil
 }

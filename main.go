@@ -4,9 +4,10 @@ import (
 	"log"
 	"os"
 
-	"github.com/grapeshot/google-auth-vault-plugin/google"
 	"github.com/hashicorp/vault/helper/pluginutil"
 	"github.com/hashicorp/vault/logical/plugin"
+
+	"github.com/jetstack/vault-plugin-auth-google/google"
 )
 
 func main() {

@@ -8,7 +8,7 @@ RUN curl -sL -o /usr/local/bin/dep ${DEP_URL} && \
     chmod +x /usr/local/bin/dep
 
 
-WORKDIR /go/src/github.com/grapeshot/google-auth-vault-plugin
+WORKDIR /go/src/github.com/jetstack/vault-plugin-auth-google
 
 ADD Gopkg.toml Gopkg.lock ./
 
@@ -16,14 +16,14 @@ RUN dep ensure -vendor-only
 
 ADD . ./
 
-RUN CGO_ENABLED=0 go build -a -tags netgo -ldflags '-w' -o google-auth-vault-plugin
+RUN CGO_ENABLED=0 go build -a -tags netgo -ldflags '-w' -o vault-plugin-auth-google
 
 # Build SHA256 of plugin and create mount script
-RUN echo "#!/bin/sh" > setup-google-auth-vault-plugin.sh && \
-    echo "vault write sys/plugins/catalog/google-auth-vault-plugin \"sha_256=$(sha256sum google-auth-vault-plugin | cut -d' ' -f1)\" command=google-auth-vault-plugin" >> setup-google-auth-vault-plugin.sh && \
-    chmod +x setup-google-auth-vault-plugin.sh
+RUN echo "#!/bin/sh" > setup-vault-plugin-auth-google.sh && \
+    echo "vault write sys/plugins/catalog/vault-plugin-auth-google \"sha_256=$(sha256sum vault-plugin-auth-google | cut -d' ' -f1)\" command=vault-plugin-auth-google" >> setup-vault-plugin-auth-google.sh && \
+    chmod +x setup-vault-plugin-auth-google.sh
 
 FROM alpine:3.7
 
-COPY --from=build /go/src/github.com/grapeshot/google-auth-vault-plugin/google-auth-vault-plugin /usr/local/bin
-COPY --from=build /go/src/github.com/grapeshot/google-auth-vault-plugin/setup-google-auth-vault-plugin.sh /usr/local/bin
+COPY --from=build /go/src/github.com/jetstack/vault-plugin-auth-google/vault-plugin-auth-google /usr/local/bin
+COPY --from=build /go/src/github.com/jetstack/vault-plugin-auth-google/setup-vault-plugin-auth-google.sh /usr/local/bin

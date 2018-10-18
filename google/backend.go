@@ -2,7 +2,6 @@ package google
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/hashicorp/vault/logical"
 	"github.com/hashicorp/vault/logical/framework"
@@ -12,7 +11,7 @@ import (
 func Factory(ctx context.Context, conf *logical.BackendConfig) (logical.Backend, error) {
 	b := newBackend()
 	if err := b.Setup(ctx, conf); err != nil {
-		return b, err
+		return nil, err
 	}
 	return b, nil
 }
@@ -25,33 +24,29 @@ Documentation can be found at https://github.com/grapeshot/google-auth-vault-plu
 
 // Backend for google
 func newBackend() *backend {
-	b := &backend{}
+	gp := &googleProvider{}
+	b := &backend{
+		user:   gp,
+		groups: gp,
+	}
 
 	b.Backend = &framework.Backend{
 		BackendType: logical.TypeCredential,
-		AuthRenew:   b.authRenew,
+		AuthRenew:   b.pathRenew,
 		Help:        googleBackendHelp,
 
 		PathsSpecial: &logical.Paths{
 			Unauthenticated: []string{
 				loginPath,
-				codeURLPath,
+				cliCodeURLPath,
+				webCodeURLPath,
 			},
 		},
 
 		Paths: append([]*framework.Path{
 			{
 				Pattern: configPath,
-				Fields: map[string]*framework.FieldSchema{
-					clientIDConfigPropertyName: &framework.FieldSchema{
-						Type:        framework.TypeString,
-						Description: "Google application ID",
-					},
-					clientSecretConfigPropertyName: &framework.FieldSchema{
-						Type:        framework.TypeString,
-						Description: "Google application secret",
-					},
-				},
+				Fields:  configPathFields(),
 
 				Callbacks: map[logical.Operation]framework.OperationFunc{
 					logical.UpdateOperation: b.pathConfigWrite,
@@ -66,9 +61,9 @@ func newBackend() *backend {
 						Type:        framework.TypeString,
 						Description: "Google authentication code. Required.",
 					},
-					roleParameterName: {
+					stateParameterName: {
 						Type:        framework.TypeString,
-						Description: "Name of the role against which the login is being attempted. Required.",
+						Description: "State parameter used by web login. If used the web method is used. Optional.",
 					},
 				},
 
@@ -79,46 +74,19 @@ func newBackend() *backend {
 			},
 
 			{
-				Pattern: codeURLPath,
+				Pattern: cliCodeURLPath,
 				Fields:  map[string]*framework.FieldSchema{},
 				Callbacks: map[logical.Operation]framework.OperationFunc{
-					logical.ReadOperation: b.pathCodeURL,
+					logical.ReadOperation: b.pathCLICodeURL,
 				},
 			},
 
-			// CRUD for roles.
 			{
-				Pattern:        fmt.Sprintf("role/%s", framework.GenericNameRegex("name")),
-				Fields:         roleFieldSchema,
-				ExistenceCheck: b.pathRoleExistenceCheck,
+				Pattern: webCodeURLPath,
+				Fields:  map[string]*framework.FieldSchema{},
 				Callbacks: map[logical.Operation]framework.OperationFunc{
-					logical.CreateOperation: b.pathRoleCreateUpdate,
-					logical.ReadOperation:   b.pathRoleRead,
-					logical.UpdateOperation: b.pathRoleCreateUpdate,
-					logical.DeleteOperation: b.pathRoleDelete,
+					logical.ReadOperation: b.pathWebCodeURL,
 				},
-				HelpSynopsis:    pathRoleHelpSyn,
-				HelpDescription: pathRoleHelpDesc,
-			},
-
-			// Paths for listing roles
-			{
-				Pattern: "role/?",
-				Callbacks: map[logical.Operation]framework.OperationFunc{
-					logical.ListOperation: b.pathRoleList,
-				},
-
-				HelpSynopsis:    pathListRolesHelpSyn,
-				HelpDescription: pathListRolesHelpDesc,
-			},
-			{
-				Pattern: "roles/?",
-				Callbacks: map[logical.Operation]framework.OperationFunc{
-					logical.ListOperation: b.pathRoleList,
-				},
-
-				HelpSynopsis:    pathListRolesHelpSyn,
-				HelpDescription: pathListRolesHelpDesc,
 			},
 		}),
 	}
@@ -129,4 +97,7 @@ func newBackend() *backend {
 type backend struct {
 	Map *framework.PolicyMap
 	*framework.Backend
+
+	user   UserProvider
+	groups GroupsProvider
 }

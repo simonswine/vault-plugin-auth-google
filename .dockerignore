@@ -1,5 +1,6 @@
 bin/
 vendor/
+!vendor/google.golang.org/api/admin/directory/v1/
 tags/
 test/
 google-auth-vault-plugin
