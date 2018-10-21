@@ -26,20 +26,25 @@ COPY patches /tmp/patches
 
 RUN git config --global user.email "simon@swine.de" && git config --global user.name "Christian Simon"
 
-# built in plugin into vault
-RUN git am /tmp/patches/0001-Integrate-Google-G-Suite-credentials-plugin.patch
-COPY ./vendor/google.golang.org/api/admin/directory/v1/*.go ./vendor/google.golang.org/api/admin/directory/v1/
-COPY google/*.go ./vendor/github.com/jetstack/vault-plugin-auth-google/google/
 
 # patch UI
 RUN \
   git am /tmp/patches/0002-Implement-google-oauth2-in-the-UI.patch && \
   git am /tmp/patches/0003-Disable-UI-auth-backends-apart-from-token-and-google.patch
 
+# build UI
+RUN \
+  make ember-dist static-assets
+
+# built in plugin into vault
+RUN git am /tmp/patches/0001-Integrate-Google-G-Suite-credentials-plugin.patch
+COPY ./vendor/google.golang.org/api/admin/directory/v1/*.go ./vendor/google.golang.org/api/admin/directory/v1/
+COPY google/*.go ./vendor/github.com/jetstack/vault-plugin-auth-google/google/
+
 # rebuilt vault
 RUN \
   sed -i "s/VersionPrerelease =.*/VersionPrerelease = \"jetstack1\"/g" version/version_base.go && \
-  make ember-dist static-assets bin XC_OSARCH=linux/amd64
+  make bin XC_OSARCH=linux/amd64
 
 FROM alpine:3.8
 
