@@ -237,6 +237,26 @@ func TestBackend_Login(t *testing.T) {
 		webRedirectURLConfigPropertyName:  "https://thefuck.com/callback",
 	}
 
+	checkConfigRead := testConfigRead(
+		t,
+		func(r *logical.Response) error {
+			for _, d := range []struct {
+				key   string
+				value time.Duration
+			}{
+				{cliTTLConfigPropertyName, time.Duration(33) * time.Minute},
+				{cliMaxTTLConfigPropertyName, time.Duration(44) * time.Minute},
+				{webTTLConfigPropertyName, time.Duration(11) * time.Minute},
+				{webMaxTTLConfigPropertyName, time.Duration(22) * time.Minute},
+			} {
+				if exp, act := d.value.String(), r.Data[d.key].(string); exp != act {
+					t.Errorf("Unexecected value for %s: exp=%s act=%s", d.key, exp, act)
+				}
+			}
+			return nil
+		},
+	)
+
 	webToken := &oauth2.Token{AccessToken: "my-web-access-token", RefreshToken: "my-web-refresh-token"}
 	webClientIDMatcher := &oauth2ConfigClientIDMatcher{clientID: "web-id", t: t}
 	webUser := &goauth.Userinfoplus{
@@ -346,13 +366,9 @@ func TestBackend_Login(t *testing.T) {
 	logicaltest.Test(t, logicaltest.TestCase{
 		Backend: b,
 		Steps: []logicaltest.TestStep{
-			// test Web
 			testConfigWrite(t, configData),
-			testConfigRead(t, func(resp *logical.Response) error {
-				t.Logf("config %+v", resp.Data)
-				return nil
-			}),
-			// test web first
+			checkConfigRead,
+			// test Web
 			webStateAndURL,
 			webLogin,
 			webLoginFailSecondTime,

@@ -223,7 +223,11 @@ func (c *config) mapWithoutSecrets() map[string]interface{} {
 
 		// if not secret, set value in map
 		if !secret {
-			output[tagJSON] = val.Interface()
+			if val.Type() == reflect.TypeOf(time.Duration(0)) {
+				output[tagJSON] = val.Interface().(time.Duration).String()
+			} else {
+				output[tagJSON] = val.Interface()
+			}
 			continue
 		}
 
