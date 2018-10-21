@@ -1,3 +1,4 @@
 {
-  "plugin_directory": "."
+  "plugin_directory": ".",
+  "ui": true
 }

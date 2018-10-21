@@ -19,5 +19,6 @@
 
 # Local development tmp
 /tmp/
-google-auth-vault-plugin
+/test/vault
+/vault-plugin-auth-google
 *.log
