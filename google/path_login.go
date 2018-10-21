@@ -62,7 +62,7 @@ func (b *backend) pathLogin(ctx context.Context, req *logical.Request, data *fra
 		return nil, err
 	}
 
-	user, groups, err := b.authenticate(ctx, config, token)
+	user, groups, err := b.authenticate(ctx, config, token, authType)
 	if err != nil {
 		return nil, err
 	}
@@ -127,7 +127,9 @@ func (b *backend) pathRenew(ctx context.Context, req *logical.Request, d *framew
 		return nil, err
 	}
 
-	user, groups, err := b.authenticate(ctx, config, token)
+	authType, ok := req.Auth.InternalData["type"].(string)
+
+	user, groups, err := b.authenticate(ctx, config, token, authType)
 	if err != nil {
 		return nil, err
 	}
@@ -165,15 +167,18 @@ func setGroups(auth *logical.Auth, user *goauth.Userinfoplus, groups []*admin.Gr
 	})
 }
 
-func (b *backend) authenticate(ctx context.Context, config *config, token *oauth2.Token) (*goauth.Userinfoplus, []*admin.Group, error) {
-	user, err := b.user.authUser(ctx, config.oauth2Config(""), token)
+func (b *backend) authenticate(ctx context.Context, config *config, token *oauth2.Token, authType string) (*goauth.Userinfoplus, []*admin.Group, error) {
+	oauth2config := config.oauth2Config(authType)
+
+	user, err := b.user.authUser(ctx, oauth2config, token)
 	if err != nil {
 		return nil, nil, err
 	}
 
 	groups, err := b.groups.groupsPerUser(ctx, config, user.Email)
 	if err != nil {
-		return nil, nil, err
+		b.Logger().Warn("querying the admin directory API for the groups for the user failed: ", "user", user, "error", "err")
+		groups = []*admin.Group{}
 	}
 
 	return user, groups, nil
