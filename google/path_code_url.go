@@ -119,9 +119,6 @@ func (b *backend) pathCodeURL(ctx context.Context, req *logical.Request, data *f
 	}
 
 	oauth2Config := config.oauth2Config(authType)
-	if oauth2Config == nil {
-		return nil, errUnknown
-	}
 
 	stateNonceByte, err := uuid.GenerateRandomBytes(16)
 	if err != nil {

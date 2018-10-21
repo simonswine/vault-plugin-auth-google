@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
 	"golang.org/x/oauth2"
 	"google.golang.org/api/admin/directory/v1"
@@ -96,6 +97,8 @@ func (b *backend) pathLogin(ctx context.Context, req *logical.Request, data *fra
 			Alias: &logical.Alias{
 				Name: user.Email,
 				Metadata: map[string]string{
+					"username":   user.Email,
+					"domain":     user.Hd,
 					"first_name": user.GivenName,
 					"last_name":  user.FamilyName,
 				},
@@ -149,7 +152,9 @@ func setGroups(auth *logical.Auth, user *goauth.Userinfoplus, groups []*admin.Gr
 		auth.GroupAliases = append(auth.GroupAliases, &logical.Alias{
 			Name: group.Email,
 			Metadata: map[string]string{
-				"name": group.Name,
+				"name":        group.Name,
+				"aliases":     strings.Join(group.Aliases, ","),
+				"description": group.Description,
 			},
 		})
 	}
