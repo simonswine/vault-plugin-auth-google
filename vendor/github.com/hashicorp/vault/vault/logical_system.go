@@ -980,14 +980,8 @@ func (b *SystemBackend) handleAuthTuneWrite(ctx context.Context, req *logical.Re
 	if path == "" {
 		return logical.ErrorResponse("missing path"), nil
 	}
-	ns, err := namespace.FromContext(ctx)
-	if err != nil {
-		return nil, err
-	}
 
-	path = ns.Path + namespace.Canonicalize("auth/"+path)
-
-	return b.handleTuneWriteCommon(ctx, path, data)
+	return b.handleTuneWriteCommon(ctx, "auth/"+path, data)
 }
 
 // handleMountTuneWrite is used to set config settings on a backend
@@ -1019,7 +1013,7 @@ func (b *SystemBackend) handleTuneWriteCommon(ctx context.Context, path string, 
 
 	mountEntry := b.Core.router.MatchingMountEntry(ctx, path)
 	if mountEntry == nil {
-		b.Backend.Logger().Error("tune failed: no mount entry found", "path", path)
+		b.Backend.Logger().Error("tune failed", "error", "no mount entry found", "path", path)
 		return handleError(fmt.Errorf("tune of path %q failed: no mount entry found", path))
 	}
 	if mountEntry != nil && !mountEntry.Local && repState.HasState(consts.ReplicationPerformanceSecondary) {
@@ -1040,7 +1034,7 @@ func (b *SystemBackend) handleTuneWriteCommon(ctx context.Context, path string, 
 	// Check again after grabbing the lock
 	mountEntry = b.Core.router.MatchingMountEntry(ctx, path)
 	if mountEntry == nil {
-		b.Backend.Logger().Error("tune failed: no mount entry found", "path", path)
+		b.Backend.Logger().Error("tune failed", "error", "no mount entry found", "path", path)
 		return handleError(fmt.Errorf("tune of path %q failed: no mount entry found", path))
 	}
 	if mountEntry != nil && !mountEntry.Local && repState.HasState(consts.ReplicationPerformanceSecondary) {

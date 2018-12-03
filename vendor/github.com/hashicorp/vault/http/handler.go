@@ -126,7 +126,8 @@ func Handler(props *vault.HandlerProperties) http.Handler {
 		} else {
 			mux.Handle("/ui/", handleUIHeaders(core, handleUIStub()))
 		}
-		mux.Handle("/", handleRootRedirect())
+		mux.Handle("/ui", handleUIRedirect())
+		mux.Handle("/", handleUIRedirect())
 	}
 
 	additionalRoutes(mux, core)
@@ -181,7 +182,7 @@ func wrapGenericHandler(core *vault.Core, h http.Handler, maxRequestSize int64, 
 			}
 			r = newR
 
-		case strings.HasPrefix(r.URL.Path, "/ui/"), r.URL.Path == "/":
+		case strings.HasPrefix(r.URL.Path, "/ui"), r.URL.Path == "/":
 		default:
 			respondError(w, http.StatusNotFound, nil)
 			cancelFunc()
@@ -364,7 +365,7 @@ func handleUIStub() http.Handler {
 	})
 }
 
-func handleRootRedirect() http.Handler {
+func handleUIRedirect() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		http.Redirect(w, req, "/ui/", 307)
 		return
@@ -475,9 +476,9 @@ func forwardRequest(core *vault.Core, w http.ResponseWriter, r *http.Request) {
 	statusCode, header, retBytes, err := core.ForwardRequest(r)
 	if err != nil {
 		if err == vault.ErrCannotForward {
-			core.Logger().Debug("handleRequestForwarding: cannot forward (possibly disabled on active node), falling back")
+			core.Logger().Debug("cannot forward request (possibly disabled on active node), falling back")
 		} else {
-			core.Logger().Error("handleRequestForwarding: error forwarding request", "error", err)
+			core.Logger().Error("forward request error", "error", err)
 		}
 
 		// Fall back to redirection

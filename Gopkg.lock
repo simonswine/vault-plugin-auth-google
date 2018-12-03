@@ -280,7 +280,7 @@
   version = "v1.0.0"
 
 [[projects]]
-  digest = "1:195191226ce25bf9407f0751608d94675ddddafa8800b446d5740c63d27223ae"
+  digest = "1:308b5d803fbdcea39db6630b629f328acdc3fec55d05325661e337d51897210a"
   name = "github.com/hashicorp/vault"
   packages = [
     "api",
@@ -339,8 +339,8 @@
     "version",
   ]
   pruneopts = "UT"
-  revision = "fb601237bfbe4bc16ff679f642248ee8a86e627b"
-  version = "v0.11.3"
+  revision = "a59ffa4a0f09bbf198241fe6793a96722789b639"
+  version = "v0.11.5"
 
 [[projects]]
   branch = "master"
@@ -659,14 +659,12 @@
   input-imports = [
     "github.com/golang/mock/gomock",
     "github.com/golang/mock/mockgen",
-    "github.com/golang/mock/mockgen/model",
     "github.com/hashicorp/go-uuid",
     "github.com/hashicorp/vault/helper/pluginutil",
     "github.com/hashicorp/vault/logical",
     "github.com/hashicorp/vault/logical/framework",
     "github.com/hashicorp/vault/logical/plugin",
     "github.com/hashicorp/vault/logical/testing",
-    "golang.org/x/net/context",
     "golang.org/x/oauth2",
     "golang.org/x/oauth2/google",
     "google.golang.org/api/admin/directory/v1",
