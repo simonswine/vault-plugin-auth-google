@@ -1,4 +1,4 @@
-FROM golang:1.10.4 AS build
+FROM golang:1.11.2 AS build
 
 ENV DEP_URL https://github.com/golang/dep/releases/download/v0.5.0/dep-linux-amd64
 ENV DEP_HASH 287b08291e14f1fae8ba44374b26a2b12eb941af3497ed0ca649253e21ba2f83
@@ -23,7 +23,7 @@ RUN echo "#!/bin/sh" > setup-vault-plugin-auth-google.sh && \
     echo "vault write sys/plugins/catalog/vault-plugin-auth-google \"sha_256=$(sha256sum vault-plugin-auth-google | cut -d' ' -f1)\" command=vault-plugin-auth-google" >> setup-vault-plugin-auth-google.sh && \
     chmod +x setup-vault-plugin-auth-google.sh
 
-FROM alpine:3.7
+FROM alpine:3.8
 
 COPY --from=build /go/src/github.com/jetstack/vault-plugin-auth-google/vault-plugin-auth-google /usr/local/bin
 COPY --from=build /go/src/github.com/jetstack/vault-plugin-auth-google/setup-vault-plugin-auth-google.sh /usr/local/bin
