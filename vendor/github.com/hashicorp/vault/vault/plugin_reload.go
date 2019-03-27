@@ -45,14 +45,12 @@ func (c *Core) reloadMatchingPluginMounts(ctx context.Context, mounts []string) 
 			continue
 		}
 
-		if entry.Type == "plugin" {
-			err := c.reloadBackendCommon(ctx, entry, isAuth)
-			if err != nil {
-				errors = multierror.Append(errors, errwrap.Wrapf(fmt.Sprintf("cannot reload plugin on %q: {{err}}", mount), err))
-				continue
-			}
-			c.logger.Info("successfully reloaded plugin", "plugin", entry.Config.PluginName, "path", entry.Path)
+		err := c.reloadBackendCommon(ctx, entry, isAuth)
+		if err != nil {
+			errors = multierror.Append(errors, errwrap.Wrapf(fmt.Sprintf("cannot reload plugin on %q: {{err}}", mount), err))
+			continue
 		}
+		c.logger.Info("successfully reloaded plugin", "plugin", entry.Accessor, "path", entry.Path)
 	}
 	return errors
 }
@@ -77,8 +75,7 @@ func (c *Core) reloadMatchingPlugin(ctx context.Context, pluginName string) erro
 		if ns.ID != entry.Namespace().ID {
 			continue
 		}
-
-		if entry.Config.PluginName == pluginName && entry.Type == "plugin" {
+		if entry.Type == pluginName || (entry.Type == "plugin" && entry.Config.PluginName == pluginName) {
 			err := c.reloadBackendCommon(ctx, entry, false)
 			if err != nil {
 				return err
@@ -94,12 +91,12 @@ func (c *Core) reloadMatchingPlugin(ctx context.Context, pluginName string) erro
 			continue
 		}
 
-		if entry.Config.PluginName == pluginName && entry.Type == "plugin" {
+		if entry.Type == pluginName || (entry.Type == "plugin" && entry.Config.PluginName == pluginName) {
 			err := c.reloadBackendCommon(ctx, entry, true)
 			if err != nil {
 				return err
 			}
-			c.logger.Info("successfully reloaded plugin", "plugin", pluginName, "path", entry.Path)
+			c.logger.Info("successfully reloaded plugin", "plugin", entry.Accessor, "path", entry.Path)
 		}
 	}
 
@@ -123,7 +120,7 @@ func (c *Core) reloadBackendCommon(ctx context.Context, entry *MountEntry, isAut
 	}
 
 	// Fast-path out if the backend doesn't exist
-	raw, ok := c.router.root.Get(path)
+	raw, ok := c.router.root.Get(entry.Namespace().Path + path)
 	if !ok {
 		return nil
 	}

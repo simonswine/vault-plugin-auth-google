@@ -5,11 +5,12 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync/atomic"
 	"time"
 
-	"github.com/armon/go-metrics"
+	metrics "github.com/armon/go-metrics"
 	"github.com/hashicorp/errwrap"
-	"github.com/hashicorp/go-multierror"
+	multierror "github.com/hashicorp/go-multierror"
 	sockaddr "github.com/hashicorp/go-sockaddr"
 	"github.com/hashicorp/vault/audit"
 	"github.com/hashicorp/vault/helper/consts"
@@ -136,6 +137,8 @@ func (c *Core) fetchACLTokenEntryAndEntity(ctx context.Context, req *logical.Req
 			c.logger.Error("failed to lookup token", "error", err)
 			return nil, nil, nil, nil, ErrInternalError
 		}
+		// Set the token entry here since it has not been cached yet
+		req.SetTokenEntry(te)
 	default:
 		te = req.TokenEntry()
 	}
@@ -212,7 +215,8 @@ func (c *Core) fetchACLTokenEntryAndEntity(ctx context.Context, req *logical.Req
 	acl, err := c.policyStore.ACL(tokenCtx, entity, policies)
 	if err != nil {
 		if errwrap.ContainsType(err, new(TemplateError)) {
-			return nil, nil, nil, nil, err
+			c.logger.Warn("permission denied due to a templated policy being invalid or containing directives not satisfied by the requestor", "error", err)
+			return nil, nil, nil, nil, logical.ErrPermissionDenied
 		}
 		c.logger.Error("failed to construct ACL", "error", err)
 		return nil, nil, nil, nil, ErrInternalError
@@ -239,10 +243,6 @@ func (c *Core) checkToken(ctx context.Context, req *logical.Request, unauth bool
 		// unauth, we just have no information to attach to the request, so
 		// ignore errors...this was best-effort anyways
 		if err != nil && !unauth {
-			if errwrap.ContainsType(err, new(TemplateError)) {
-				c.logger.Warn("permission denied due to a templated policy being invalid or containing directives not satisfied by the requestor")
-				err = logical.ErrPermissionDenied
-			}
 			return nil, te, err
 		}
 	}
@@ -252,6 +252,9 @@ func (c *Core) checkToken(ctx context.Context, req *logical.Request, unauth bool
 		return nil, te, logical.ErrPermissionDenied
 	}
 	if te != nil && te.EntityID != "" && entity == nil {
+		if c.perfStandby {
+			return nil, nil, logical.ErrPerfStandbyPleaseForward
+		}
 		c.logger.Warn("permission denied as the entity on the token is invalid")
 		return nil, te, logical.ErrPermissionDenied
 	}
@@ -263,25 +266,46 @@ func (c *Core) checkToken(ctx context.Context, req *logical.Request, unauth bool
 		return nil, nil, errors.New("cannot access root path in unauthenticated request")
 	}
 
+	// At this point we won't be forwarding a raw request; we should delete
+	// authorization headers as appropriate
+	switch req.ClientTokenSource {
+	case logical.ClientTokenFromVaultHeader:
+		delete(req.Headers, consts.AuthHeaderName)
+	case logical.ClientTokenFromAuthzHeader:
+		if headers, ok := req.Headers["Authorization"]; ok {
+			retHeaders := make([]string, 0, len(headers))
+			for _, v := range headers {
+				if strings.HasPrefix(v, "Bearer ") {
+					continue
+				}
+				retHeaders = append(retHeaders, v)
+			}
+			req.Headers["Authorization"] = retHeaders
+		}
+	}
+
 	// When we receive a write of either type, rather than require clients to
 	// PUT/POST and trust the operation, we ask the backend to give us the real
 	// skinny -- if the backend implements an existence check, it can tell us
 	// whether a particular resource exists. Then we can mark it as an update
 	// or creation as appropriate.
 	if req.Operation == logical.CreateOperation || req.Operation == logical.UpdateOperation {
-		checkExists, resourceExists, err := c.router.RouteExistenceCheck(ctx, req)
+		existsResp, checkExists, resourceExists, err := c.router.RouteExistenceCheck(ctx, req)
 		switch err {
 		case logical.ErrUnsupportedPath:
 			// fail later via bad path to avoid confusing items in the log
 			checkExists = false
 		case nil:
-			// Continue on
+			if existsResp != nil && existsResp.IsError() {
+				return nil, te, existsResp.Error()
+			}
+			// Otherwise, continue on
 		default:
 			c.logger.Error("failed to run existence check", "error", err)
 			if _, ok := err.(errutil.UserError); ok {
-				return nil, nil, err
+				return nil, te, err
 			} else {
-				return nil, nil, ErrInternalError
+				return nil, te, ErrInternalError
 			}
 		}
 
@@ -316,6 +340,7 @@ func (c *Core) checkToken(ctx context.Context, req *logical.Request, unauth bool
 		auth.ExternalNamespacePolicies = identityPolicies
 		// Store the entity ID in the request object
 		req.EntityID = te.EntityID
+		auth.TokenType = te.Type
 	}
 
 	// Check the standard non-root ACLs. Return the token entry if it's not
@@ -339,17 +364,16 @@ func (c *Core) checkToken(ctx context.Context, req *logical.Request, unauth bool
 // HandleRequest is used to handle a new incoming request
 func (c *Core) HandleRequest(httpCtx context.Context, req *logical.Request) (resp *logical.Response, err error) {
 	c.stateLock.RLock()
-	defer c.stateLock.RUnlock()
 	if c.Sealed() {
+		c.stateLock.RUnlock()
 		return nil, consts.ErrSealed
 	}
 	if c.standby && !c.perfStandby {
+		c.stateLock.RUnlock()
 		return nil, consts.ErrStandby
 	}
 
 	ctx, cancel := context.WithCancel(c.activeContext)
-	defer cancel()
-
 	go func(ctx context.Context, httpCtx context.Context) {
 		select {
 		case <-ctx.Done():
@@ -358,6 +382,23 @@ func (c *Core) HandleRequest(httpCtx context.Context, req *logical.Request) (res
 		}
 	}(ctx, httpCtx)
 
+	ns, err := namespace.FromContext(httpCtx)
+	if err != nil {
+		cancel()
+		c.stateLock.RUnlock()
+		return nil, errwrap.Wrapf("could not parse namespace from http context: {{err}}", err)
+	}
+	ctx = namespace.ContextWithNamespace(ctx, ns)
+
+	resp, err = c.handleCancelableRequest(ctx, ns, req)
+
+	req.SetTokenEntry(nil)
+	cancel()
+	c.stateLock.RUnlock()
+	return resp, err
+}
+
+func (c *Core) handleCancelableRequest(ctx context.Context, ns *namespace.Namespace, req *logical.Request) (resp *logical.Response, err error) {
 	// Allowing writing to a path ending in / makes it extremely difficult to
 	// understand user intent for the filesystem-like backends (kv,
 	// cubbyhole) -- did they want a key named foo/ or did they want to write
@@ -374,12 +415,6 @@ func (c *Core) HandleRequest(httpCtx context.Context, req *logical.Request) (res
 	if err != nil {
 		return nil, err
 	}
-
-	ns, err := namespace.FromContext(httpCtx)
-	if err != nil {
-		return nil, errwrap.Wrapf("could not parse namespace from http context: {{err}}", err)
-	}
-	ctx = namespace.ContextWithNamespace(ctx, ns)
 
 	if !hasNamespaces(c) && ns.Path != "" {
 		return nil, logical.CodedError(403, "namespaces feature not enabled")
@@ -495,6 +530,18 @@ func isControlGroupRun(req *logical.Request) bool {
 	return req.ControlGroup != nil
 }
 
+func (c *Core) doRouting(ctx context.Context, req *logical.Request) (*logical.Response, error) {
+	// If we're replicating and we get a read-only error from a backend, need to forward to primary
+	resp, err := c.router.Route(ctx, req)
+	if err != nil {
+		if shouldForward(c, err) {
+			return forward(ctx, c, req)
+		}
+	}
+	atomic.AddUint64(c.counters.requests, 1)
+	return resp, err
+}
+
 func (c *Core) handleRequest(ctx context.Context, req *logical.Request) (retResp *logical.Response, retAuth *logical.Auth, retErr error) {
 	defer metrics.MeasureSince([]string{"core", "handle_request"}, time.Now())
 
@@ -516,7 +563,13 @@ func (c *Core) handleRequest(ctx context.Context, req *logical.Request) (retResp
 
 	// Validate the token
 	auth, te, ctErr := c.checkToken(ctx, req, false)
-	// We run this logic first because we want to decrement the use count even in the case of an error
+	if ctErr == logical.ErrPerfStandbyPleaseForward {
+		return nil, nil, ctErr
+	}
+
+	// We run this logic first because we want to decrement the use count even
+	// in the case of an error (assuming we can successfully look up; if we
+	// need to forward, we exit before now)
 	if te != nil && !isControlGroupRun(req) {
 		// Attempt to use the token (decrement NumUses)
 		var err error
@@ -561,7 +614,7 @@ func (c *Core) handleRequest(ctx context.Context, req *logical.Request) (retResp
 		newCtErr, cgResp, cgAuth, cgRetErr := checkNeedsCG(ctx, c, req, auth, ctErr, nonHMACReqDataKeys)
 		switch {
 		case newCtErr != nil:
-			ctErr = err
+			ctErr = newCtErr
 		case cgResp != nil || cgAuth != nil:
 			if cgRetErr != nil {
 				retErr = multierror.Append(retErr, cgRetErr)
@@ -622,12 +675,9 @@ func (c *Core) handleRequest(ctx context.Context, req *logical.Request) (retResp
 	}
 
 	// Route the request
-	resp, routeErr := c.router.Route(ctx, req)
-	// If we're replicating and we get a read-only error from a backend, need to forward to primary
-	if routeErr != nil {
-		resp, routeErr = possiblyForward(ctx, c, req, resp, routeErr)
-	}
+	resp, routeErr := c.doRouting(ctx, req)
 	if resp != nil {
+
 		// If wrapping is used, use the shortest between the request and response
 		var wrapTTL time.Duration
 		var wrapFormat, creationPath string
@@ -744,6 +794,19 @@ func (c *Core) handleRequest(ctx context.Context, req *logical.Request) (retResp
 				return nil, auth, retErr
 			}
 			resp.Secret.LeaseID = leaseID
+
+			// Get the actual time of the lease
+			le, err := c.expiration.FetchLeaseTimes(ctx, leaseID)
+			if err != nil {
+				c.logger.Error("failed to fetch updated lease time", "request_path", req.Path, "error", err)
+				retErr = multierror.Append(retErr, ErrInternalError)
+				return nil, auth, retErr
+			}
+			// We round here because the clock will have already started
+			// ticking, so we'll end up always returning 299 instead of 300 or
+			// 26399 instead of 26400, say, even if it's just a few
+			// microseconds. This provides a nicer UX.
+			resp.Secret.TTL = le.ExpireTime.Sub(time.Now()).Round(time.Second)
 		}
 	}
 
@@ -777,14 +840,18 @@ func (c *Core) handleRequest(ctx context.Context, req *logical.Request) (retResp
 		}
 
 		resp.Auth.TokenPolicies = policyutil.SanitizePolicies(resp.Auth.Policies, policyutil.DoNotAddDefaultPolicy)
-		if err := c.expiration.RegisterAuth(ctx, &logical.TokenEntry{
-			Path:        resp.Auth.CreationPath,
-			NamespaceID: ns.ID,
-		}, resp.Auth); err != nil {
-			c.tokenStore.revokeOrphan(ctx, te.ID)
-			c.logger.Error("failed to register token lease", "request_path", req.Path, "error", err)
-			retErr = multierror.Append(retErr, ErrInternalError)
-			return nil, auth, retErr
+		switch resp.Auth.TokenType {
+		case logical.TokenTypeBatch:
+		case logical.TokenTypeService:
+			if err := c.expiration.RegisterAuth(ctx, &logical.TokenEntry{
+				Path:        resp.Auth.CreationPath,
+				NamespaceID: ns.ID,
+			}, resp.Auth); err != nil {
+				c.tokenStore.revokeOrphan(ctx, te.ID)
+				c.logger.Error("failed to register token lease", "request_path", req.Path, "error", err)
+				retErr = multierror.Append(retErr, ErrInternalError)
+				return nil, auth, retErr
+			}
 		}
 
 		// We do these later since it's not meaningful for backends/expmgr to
@@ -824,6 +891,9 @@ func (c *Core) handleLoginRequest(ctx context.Context, req *logical.Request) (re
 	// Do an unauth check. This will cause EGP policies to be checked
 	var ctErr error
 	auth, _, ctErr = c.checkToken(ctx, req, true)
+	if ctErr == logical.ErrPerfStandbyPleaseForward {
+		return nil, nil, ctErr
+	}
 	if ctErr != nil {
 		// If it is an internal error we return that, otherwise we
 		// return invalid request so that the status codes can be correct
@@ -883,11 +953,7 @@ func (c *Core) handleLoginRequest(ctx context.Context, req *logical.Request) (re
 	}
 
 	// Route the request
-	resp, routeErr := c.router.Route(ctx, req)
-	// If we're replicating and we get a read-only error from a backend, need to forward to primary
-	if routeErr != nil {
-		resp, routeErr = possiblyForward(ctx, c, req, resp, routeErr)
-	}
+	resp, routeErr := c.doRouting(ctx, req)
 	if resp != nil {
 		// If wrapping is used, use the shortest between the request and response
 		var wrapTTL time.Duration
@@ -1031,7 +1097,14 @@ func (c *Core) handleLoginRequest(ctx context.Context, req *logical.Request) (re
 			}
 		}
 
-		registerFunc, funcGetErr := getAuthRegisterFunc(c)
+		var registerFunc RegisterAuthFunc
+		var funcGetErr error
+		// Batch tokens should not be forwarded to perf standby
+		if auth.TokenType == logical.TokenTypeBatch {
+			registerFunc = c.RegisterAuth
+		} else {
+			registerFunc, funcGetErr = getAuthRegisterFunc(c)
+		}
 		if funcGetErr != nil {
 			retErr = multierror.Append(retErr, funcGetErr)
 			return nil, auth, retErr
@@ -1083,6 +1156,7 @@ func (c *Core) RegisterAuth(ctx context.Context, tokenTTL time.Duration, path st
 		Policies:       auth.TokenPolicies,
 		NamespaceID:    ns.ID,
 		ExplicitMaxTTL: auth.ExplicitMaxTTL,
+		Type:           auth.TokenType,
 	}
 
 	if err := c.tokenStore.create(ctx, &te); err != nil {
@@ -1094,12 +1168,19 @@ func (c *Core) RegisterAuth(ctx context.Context, tokenTTL time.Duration, path st
 	auth.ClientToken = te.ID
 	auth.Accessor = te.Accessor
 	auth.TTL = te.TTL
+	auth.Orphan = te.Parent == ""
 
-	// Register with the expiration manager
-	if err := c.expiration.RegisterAuth(ctx, &te, auth); err != nil {
-		c.tokenStore.revokeOrphan(ctx, te.ID)
-		c.logger.Error("failed to register token lease", "request_path", path, "error", err)
-		return ErrInternalError
+	switch auth.TokenType {
+	case logical.TokenTypeBatch:
+		// Ensure it's not marked renewable since it isn't
+		auth.Renewable = false
+	case logical.TokenTypeService:
+		// Register with the expiration manager
+		if err := c.expiration.RegisterAuth(ctx, &te, auth); err != nil {
+			c.tokenStore.revokeOrphan(ctx, te.ID)
+			c.logger.Error("failed to register token lease", "request_path", path, "error", err)
+			return ErrInternalError
+		}
 	}
 
 	return nil

@@ -10,7 +10,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/hashicorp/go-uuid"
+	uuid "github.com/hashicorp/go-uuid"
+	"github.com/hashicorp/vault/builtin/plugin"
 	"github.com/hashicorp/vault/helper/consts"
 	"github.com/hashicorp/vault/helper/jsonutil"
 	"github.com/hashicorp/vault/helper/namespace"
@@ -60,6 +61,7 @@ const (
 	systemMountType    = "system"
 	identityMountType  = "identity"
 	cubbyholeMountType = "cubbyhole"
+	pluginMountType    = "plugin"
 
 	MountTableUpdateStorage   = true
 	MountTableNoUpdateStorage = false
@@ -221,11 +223,17 @@ type MountConfig struct {
 	DefaultLeaseTTL           time.Duration         `json:"default_lease_ttl" structs:"default_lease_ttl" mapstructure:"default_lease_ttl"` // Override for global default
 	MaxLeaseTTL               time.Duration         `json:"max_lease_ttl" structs:"max_lease_ttl" mapstructure:"max_lease_ttl"`             // Override for global default
 	ForceNoCache              bool                  `json:"force_no_cache" structs:"force_no_cache" mapstructure:"force_no_cache"`          // Override for global default
-	PluginName                string                `json:"plugin_name,omitempty" structs:"plugin_name,omitempty" mapstructure:"plugin_name"`
 	AuditNonHMACRequestKeys   []string              `json:"audit_non_hmac_request_keys,omitempty" structs:"audit_non_hmac_request_keys" mapstructure:"audit_non_hmac_request_keys"`
 	AuditNonHMACResponseKeys  []string              `json:"audit_non_hmac_response_keys,omitempty" structs:"audit_non_hmac_response_keys" mapstructure:"audit_non_hmac_response_keys"`
 	ListingVisibility         ListingVisibilityType `json:"listing_visibility,omitempty" structs:"listing_visibility" mapstructure:"listing_visibility"`
 	PassthroughRequestHeaders []string              `json:"passthrough_request_headers,omitempty" structs:"passthrough_request_headers" mapstructure:"passthrough_request_headers"`
+	AllowedResponseHeaders    []string              `json:"allowed_response_headers,omitempty" structs:"allowed_response_headers" mapstructure:"allowed_response_headers"`
+	TokenType                 logical.TokenType     `json:"token_type" structs:"token_type" mapstructure:"token_type"`
+
+	// PluginName is the name of the plugin registered in the catalog.
+	//
+	// Deprecated: MountEntry.Type should be used instead for Vault 1.0.0 and beyond.
+	PluginName string `json:"plugin_name,omitempty" structs:"plugin_name,omitempty" mapstructure:"plugin_name"`
 }
 
 // APIMountConfig is an embedded struct of api.MountConfigInput
@@ -233,11 +241,17 @@ type APIMountConfig struct {
 	DefaultLeaseTTL           string                `json:"default_lease_ttl" structs:"default_lease_ttl" mapstructure:"default_lease_ttl"`
 	MaxLeaseTTL               string                `json:"max_lease_ttl" structs:"max_lease_ttl" mapstructure:"max_lease_ttl"`
 	ForceNoCache              bool                  `json:"force_no_cache" structs:"force_no_cache" mapstructure:"force_no_cache"`
-	PluginName                string                `json:"plugin_name,omitempty" structs:"plugin_name,omitempty" mapstructure:"plugin_name"`
 	AuditNonHMACRequestKeys   []string              `json:"audit_non_hmac_request_keys,omitempty" structs:"audit_non_hmac_request_keys" mapstructure:"audit_non_hmac_request_keys"`
 	AuditNonHMACResponseKeys  []string              `json:"audit_non_hmac_response_keys,omitempty" structs:"audit_non_hmac_response_keys" mapstructure:"audit_non_hmac_response_keys"`
 	ListingVisibility         ListingVisibilityType `json:"listing_visibility,omitempty" structs:"listing_visibility" mapstructure:"listing_visibility"`
 	PassthroughRequestHeaders []string              `json:"passthrough_request_headers,omitempty" structs:"passthrough_request_headers" mapstructure:"passthrough_request_headers"`
+	AllowedResponseHeaders    []string              `json:"allowed_response_headers,omitempty" structs:"allowed_response_headers" mapstructure:"allowed_response_headers"`
+	TokenType                 string                `json:"token_type" structs:"token_type" mapstructure:"token_type"`
+
+	// PluginName is the name of the plugin registered in the catalog.
+	//
+	// Deprecated: MountEntry.Type should be used instead for Vault 1.0.0 and beyond.
+	PluginName string `json:"plugin_name,omitempty" structs:"plugin_name,omitempty" mapstructure:"plugin_name"`
 }
 
 // Clone returns a deep copy of the mount entry
@@ -283,6 +297,12 @@ func (e *MountEntry) SyncCache() {
 		e.synthesizedConfigCache.Delete("passthrough_request_headers")
 	} else {
 		e.synthesizedConfigCache.Store("passthrough_request_headers", e.Config.PassthroughRequestHeaders)
+	}
+
+	if len(e.Config.AllowedResponseHeaders) == 0 {
+		e.synthesizedConfigCache.Delete("allowed_response_headers")
+	} else {
+		e.synthesizedConfigCache.Store("allowed_response_headers", e.Config.AllowedResponseHeaders)
 	}
 }
 
@@ -415,12 +435,7 @@ func (c *Core) mountInternal(ctx context.Context, entry *MountEntry, updateStora
 
 	var backend logical.Backend
 	sysView := c.mountEntrySysView(entry)
-	conf := make(map[string]string)
-	if entry.Config.PluginName != "" {
-		conf["plugin_name"] = entry.Config.PluginName
-	}
 
-	// Consider having plugin name under entry.Options
 	backend, err = c.newLogicalBackend(ctx, entry, sysView, view)
 	if err != nil {
 		return err
@@ -431,8 +446,10 @@ func (c *Core) mountInternal(ctx context.Context, entry *MountEntry, updateStora
 
 	// Check for the correct backend type
 	backendType := backend.Type()
-	if entry.Type == "plugin" && backendType != logical.TypeLogical {
-		return fmt.Errorf("cannot mount %q of type %q as a logical backend", entry.Config.PluginName, backendType)
+	if backendType != logical.TypeLogical {
+		if entry.Type != "kv" && entry.Type != "system" && entry.Type != "cubbyhole" {
+			return fmt.Errorf(`unknown backend type: "%s"`, entry.Type)
+		}
 	}
 
 	addPathCheckers(c, entry, backend, viewPath)
@@ -834,6 +851,7 @@ func (c *Core) loadMounts(ctx context.Context) error {
 		for _, coreMount := range c.mounts.Entries {
 			if coreMount.Type == requiredMount.Type {
 				foundRequired = true
+				coreMount.Config = requiredMount.Config
 				break
 			}
 		}
@@ -948,7 +966,7 @@ func (c *Core) persistMounts(ctx context.Context, table *MountTable, local *bool
 		}
 
 		// Create an entry
-		entry := &Entry{
+		entry := &logical.StorageEntry{
 			Key:   path,
 			Value: compressedBytes,
 		}
@@ -1027,15 +1045,10 @@ func (c *Core) setupMounts(ctx context.Context) error {
 		var backend logical.Backend
 		// Create the new backend
 		sysView := c.mountEntrySysView(entry)
-		// Set up conf to pass in plugin_name
-		conf := make(map[string]string)
-		if entry.Config.PluginName != "" {
-			conf["plugin_name"] = entry.Config.PluginName
-		}
 		backend, err = c.newLogicalBackend(ctx, entry, sysView, view)
 		if err != nil {
 			c.logger.Error("failed to create mount entry", "path", entry.Path, "error", err)
-			if entry.Type == "plugin" {
+			if !c.builtinRegistry.Contains(entry.Type, consts.PluginTypeSecrets) {
 				// If we encounter an error instantiating the backend due to an error,
 				// skip backend initialization but register the entry to the mount table
 				// to preserve storage and path.
@@ -1051,8 +1064,11 @@ func (c *Core) setupMounts(ctx context.Context) error {
 		{
 			// Check for the correct backend type
 			backendType := backend.Type()
-			if entry.Type == "plugin" && backendType != logical.TypeLogical {
-				return fmt.Errorf("cannot mount %q of type %q as a logical backend", entry.Config.PluginName, backendType)
+
+			if backendType != logical.TypeLogical {
+				if entry.Type != "kv" && entry.Type != "system" && entry.Type != "cubbyhole" {
+					return fmt.Errorf(`unknown backend type: "%s"`, entry.Type)
+				}
 			}
 
 			addPathCheckers(c, entry, backend, barrierPath)
@@ -1122,9 +1138,10 @@ func (c *Core) newLogicalBackend(ctx context.Context, entry *MountEntry, sysView
 	if alias, ok := mountAliases[t]; ok {
 		t = alias
 	}
+
 	f, ok := c.logicalBackends[t]
 	if !ok {
-		return nil, fmt.Errorf("unknown backend type: %q", t)
+		f = plugin.Factory
 	}
 
 	// Set up conf to pass in plugin_name
@@ -1132,9 +1149,15 @@ func (c *Core) newLogicalBackend(ctx context.Context, entry *MountEntry, sysView
 	for k, v := range entry.Options {
 		conf[k] = v
 	}
-	if entry.Config.PluginName != "" {
+
+	switch {
+	case entry.Type == "plugin":
 		conf["plugin_name"] = entry.Config.PluginName
+	default:
+		conf["plugin_name"] = t
 	}
+
+	conf["plugin_type"] = consts.PluginTypeSecrets.String()
 
 	backendLogger := c.baseLogger.Named(fmt.Sprintf("secrets.%s.%s", t, entry.Accessor))
 	c.AddLogger(backendLogger)
@@ -1171,36 +1194,37 @@ func (c *Core) defaultMountTable() *MountTable {
 	table := &MountTable{
 		Type: mountTableType,
 	}
-	mountUUID, err := uuid.GenerateUUID()
-	if err != nil {
-		panic(fmt.Sprintf("could not create default secret mount UUID: %v", err))
-	}
-	mountAccessor, err := c.generateMountAccessor("kv")
-	if err != nil {
-		panic(fmt.Sprintf("could not generate default secret mount accessor: %v", err))
-	}
-	bUUID, err := uuid.GenerateUUID()
-	if err != nil {
-		panic(fmt.Sprintf("could not create default secret mount backend UUID: %v", err))
+	table.Entries = append(table.Entries, c.requiredMountTable().Entries...)
+
+	if os.Getenv("VAULT_INTERACTIVE_DEMO_SERVER") != "" {
+		mountUUID, err := uuid.GenerateUUID()
+		if err != nil {
+			panic(fmt.Sprintf("could not create default secret mount UUID: %v", err))
+		}
+		mountAccessor, err := c.generateMountAccessor("kv")
+		if err != nil {
+			panic(fmt.Sprintf("could not generate default secret mount accessor: %v", err))
+		}
+		bUUID, err := uuid.GenerateUUID()
+		if err != nil {
+			panic(fmt.Sprintf("could not create default secret mount backend UUID: %v", err))
+		}
+
+		kvMount := &MountEntry{
+			Table:            mountTableType,
+			Path:             "secret/",
+			Type:             "kv",
+			Description:      "key/value secret storage",
+			UUID:             mountUUID,
+			Accessor:         mountAccessor,
+			BackendAwareUUID: bUUID,
+			Options: map[string]string{
+				"version": "2",
+			},
+		}
+		table.Entries = append(table.Entries, kvMount)
 	}
 
-	kvMount := &MountEntry{
-		Table:            mountTableType,
-		Path:             "secret/",
-		Type:             "kv",
-		Description:      "key/value secret storage",
-		UUID:             mountUUID,
-		Accessor:         mountAccessor,
-		BackendAwareUUID: bUUID,
-		Options: map[string]string{
-			"version": "1",
-		},
-	}
-	if os.Getenv("VAULT_INTERACTIVE_DEMO_SERVER") != "" {
-		kvMount.Options["version"] = "2"
-	}
-	table.Entries = append(table.Entries, kvMount)
-	table.Entries = append(table.Entries, c.requiredMountTable().Entries...)
 	return table
 }
 
@@ -1253,6 +1277,9 @@ func (c *Core) requiredMountTable() *MountTable {
 		UUID:             sysUUID,
 		Accessor:         sysAccessor,
 		BackendAwareUUID: sysBackendUUID,
+		Config: MountConfig{
+			PassthroughRequestHeaders: []string{"Accept"},
+		},
 	}
 
 	identityUUID, err := uuid.GenerateUUID()

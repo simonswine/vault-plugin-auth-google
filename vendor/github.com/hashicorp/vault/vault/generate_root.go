@@ -7,7 +7,7 @@ import (
 	"fmt"
 
 	"github.com/hashicorp/errwrap"
-	"github.com/hashicorp/go-uuid"
+	uuid "github.com/hashicorp/go-uuid"
 	"github.com/hashicorp/vault/helper/consts"
 	"github.com/hashicorp/vault/helper/pgpkeys"
 	"github.com/hashicorp/vault/helper/xor"
@@ -121,7 +121,7 @@ func (c *Core) GenerateRootInit(otp, pgpKey string, strategy GenerateRootStrateg
 	var fingerprint string
 	switch {
 	case len(otp) > 0:
-		if len(otp) != TokenLength {
+		if len(otp) != TokenLength+2 {
 			return fmt.Errorf("OTP string is wrong length")
 		}
 

@@ -12,6 +12,7 @@ import (
 	"hash"
 	"net/http"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -25,6 +26,7 @@ import (
 	"github.com/hashicorp/vault/helper/consts"
 	"github.com/hashicorp/vault/helper/identity"
 	"github.com/hashicorp/vault/helper/jsonutil"
+	"github.com/hashicorp/vault/helper/metricsutil"
 	"github.com/hashicorp/vault/helper/namespace"
 	"github.com/hashicorp/vault/helper/parseutil"
 	"github.com/hashicorp/vault/helper/strutil"
@@ -108,6 +110,7 @@ func NewSystemBackend(core *Core, logger log.Logger) *SystemBackend {
 				"wrapping/lookup",
 				"wrapping/pubkey",
 				"replication/status",
+				"internal/specs/openapi",
 				"internal/ui/mounts",
 				"internal/ui/mounts/*",
 				"internal/ui/namespaces",
@@ -130,8 +133,8 @@ func NewSystemBackend(core *Core, logger log.Logger) *SystemBackend {
 	b.Backend.Paths = append(b.Backend.Paths, b.configPaths()...)
 	b.Backend.Paths = append(b.Backend.Paths, b.rekeyPaths()...)
 	b.Backend.Paths = append(b.Backend.Paths, b.sealPaths()...)
-	b.Backend.Paths = append(b.Backend.Paths, b.pluginsCatalogPath())
-	b.Backend.Paths = append(b.Backend.Paths, b.pluginsCatalogListPath())
+	b.Backend.Paths = append(b.Backend.Paths, b.pluginsCatalogListPaths()...)
+	b.Backend.Paths = append(b.Backend.Paths, b.pluginsCatalogCRUDPath())
 	b.Backend.Paths = append(b.Backend.Paths, b.pluginsReloadPath())
 	b.Backend.Paths = append(b.Backend.Paths, b.auditPaths()...)
 	b.Backend.Paths = append(b.Backend.Paths, b.mountPaths()...)
@@ -141,8 +144,9 @@ func NewSystemBackend(core *Core, logger log.Logger) *SystemBackend {
 	b.Backend.Paths = append(b.Backend.Paths, b.wrappingPaths()...)
 	b.Backend.Paths = append(b.Backend.Paths, b.toolsPaths()...)
 	b.Backend.Paths = append(b.Backend.Paths, b.capabilitiesPaths()...)
-	b.Backend.Paths = append(b.Backend.Paths, b.internalUIPaths()...)
+	b.Backend.Paths = append(b.Backend.Paths, b.internalPaths()...)
 	b.Backend.Paths = append(b.Backend.Paths, b.remountPath())
+	b.Backend.Paths = append(b.Backend.Paths, b.metricsPath())
 
 	if core.rawEnabled {
 		b.Backend.Paths = append(b.Backend.Paths, &framework.Path{
@@ -157,12 +161,25 @@ func NewSystemBackend(core *Core, logger log.Logger) *SystemBackend {
 				},
 			},
 
-			Callbacks: map[logical.Operation]framework.OperationFunc{
-				logical.ReadOperation:   b.handleRawRead,
-				logical.UpdateOperation: b.handleRawWrite,
-				logical.DeleteOperation: b.handleRawDelete,
-				logical.ListOperation:   b.handleRawList,
+			Operations: map[logical.Operation]framework.OperationHandler{
+				logical.ReadOperation: &framework.PathOperation{
+					Callback: b.handleRawRead,
+					Summary:  "Read the value of the key at the given path.",
+				},
+				logical.UpdateOperation: &framework.PathOperation{
+					Callback: b.handleRawWrite,
+					Summary:  "Update the value of the key at the given path.",
+				},
+				logical.DeleteOperation: &framework.PathOperation{
+					Callback: b.handleRawDelete,
+					Summary:  "Delete the key with given path.",
+				},
+				logical.ListOperation: &framework.PathOperation{
+					Callback: b.handleRawList,
+					Summary:  "Return a list keys for a given path prefix.",
+				},
 			},
+
 			HelpSynopsis:    strings.TrimSpace(sysHelp["raw"][0]),
 			HelpDescription: strings.TrimSpace(sysHelp["raw"][1]),
 		})
@@ -241,19 +258,51 @@ func (b *SystemBackend) handleTidyLeases(ctx context.Context, req *logical.Reque
 	return logical.RespondWithStatusCode(resp, req, http.StatusAccepted)
 }
 
-func (b *SystemBackend) handlePluginCatalogList(ctx context.Context, req *logical.Request, d *framework.FieldData) (*logical.Response, error) {
-	plugins, err := b.Core.pluginCatalog.List(ctx)
+func (b *SystemBackend) handlePluginCatalogTypedList(ctx context.Context, req *logical.Request, d *framework.FieldData) (*logical.Response, error) {
+	pluginType, err := consts.ParsePluginType(d.Get("type").(string))
 	if err != nil {
 		return nil, err
 	}
 
+	plugins, err := b.Core.pluginCatalog.List(ctx, pluginType)
+	if err != nil {
+		return nil, err
+	}
 	return logical.ListResponse(plugins), nil
+}
+
+func (b *SystemBackend) handlePluginCatalogUntypedList(ctx context.Context, req *logical.Request, d *framework.FieldData) (*logical.Response, error) {
+	pluginsByType := make(map[string]interface{})
+	for _, pluginType := range consts.PluginTypes {
+		plugins, err := b.Core.pluginCatalog.List(ctx, pluginType)
+		if err != nil {
+			return nil, err
+		}
+		if len(plugins) > 0 {
+			sort.Strings(plugins)
+			pluginsByType[pluginType.String()] = plugins
+		}
+	}
+	return &logical.Response{
+		Data: pluginsByType,
+	}, nil
 }
 
 func (b *SystemBackend) handlePluginCatalogUpdate(ctx context.Context, req *logical.Request, d *framework.FieldData) (*logical.Response, error) {
 	pluginName := d.Get("name").(string)
 	if pluginName == "" {
 		return logical.ErrorResponse("missing plugin name"), nil
+	}
+
+	pluginTypeStr := d.Get("type").(string)
+	if pluginTypeStr == "" {
+		// If the plugin type is not provided, list it as unknown so that we
+		// add it to the catalog and UpdatePlugins later will sort it.
+		pluginTypeStr = "unknown"
+	}
+	pluginType, err := consts.ParsePluginType(pluginTypeStr)
+	if err != nil {
+		return nil, err
 	}
 
 	sha256 := d.Get("sha256").(string)
@@ -288,7 +337,7 @@ func (b *SystemBackend) handlePluginCatalogUpdate(ctx context.Context, req *logi
 		return logical.ErrorResponse("Could not decode SHA-256 value from Hex"), err
 	}
 
-	err = b.Core.pluginCatalog.Set(ctx, pluginName, parts[0], args, env, sha256Bytes)
+	err = b.Core.pluginCatalog.Set(ctx, pluginName, pluginType, parts[0], args, env, sha256Bytes)
 	if err != nil {
 		return nil, err
 	}
@@ -301,7 +350,23 @@ func (b *SystemBackend) handlePluginCatalogRead(ctx context.Context, req *logica
 	if pluginName == "" {
 		return logical.ErrorResponse("missing plugin name"), nil
 	}
-	plugin, err := b.Core.pluginCatalog.Get(ctx, pluginName)
+
+	pluginTypeStr := d.Get("type").(string)
+	if pluginTypeStr == "" {
+		// If the plugin type is not provided (i.e. the old
+		// sys/plugins/catalog/:name endpoint is being requested) short-circuit here
+		// and return a warning
+		resp := &logical.Response{}
+		resp.AddWarning(fmt.Sprintf("Deprecated API endpoint, cannot read plugin information from catalog for %q", pluginName))
+		return resp, nil
+	}
+
+	pluginType, err := consts.ParsePluginType(pluginTypeStr)
+	if err != nil {
+		return nil, err
+	}
+
+	plugin, err := b.Core.pluginCatalog.Get(ctx, pluginName, pluginType)
 	if err != nil {
 		return nil, err
 	}
@@ -335,12 +400,28 @@ func (b *SystemBackend) handlePluginCatalogDelete(ctx context.Context, req *logi
 	if pluginName == "" {
 		return logical.ErrorResponse("missing plugin name"), nil
 	}
-	err := b.Core.pluginCatalog.Delete(ctx, pluginName)
+
+	var resp *logical.Response
+	pluginTypeStr := d.Get("type").(string)
+	if pluginTypeStr == "" {
+		// If the plugin type is not provided (i.e. the old
+		// sys/plugins/catalog/:name endpoint is being requested), set type to
+		// unknown and let pluginCatalog.Delete proceed. It should handle
+		// deregistering out of the old storage path (root of core/plugin-catalog)
+		resp = new(logical.Response)
+		resp.AddWarning(fmt.Sprintf("Deprecated API endpoint, cannot deregister plugin from catalog for %q", pluginName))
+		pluginTypeStr = "unknown"
+	}
+
+	pluginType, err := consts.ParsePluginType(pluginTypeStr)
 	if err != nil {
 		return nil, err
 	}
+	if err := b.Core.pluginCatalog.Delete(ctx, pluginName, pluginType); err != nil {
+		return nil, err
+	}
 
-	return nil, nil
+	return resp, nil
 }
 
 func (b *SystemBackend) handlePluginReloadUpdate(ctx context.Context, req *logical.Request, d *framework.FieldData) (*logical.Response, error) {
@@ -585,7 +666,6 @@ func mountInfo(entry *MountEntry) map[string]interface{} {
 		"default_lease_ttl": int64(entry.Config.DefaultLeaseTTL.Seconds()),
 		"max_lease_ttl":     int64(entry.Config.MaxLeaseTTL.Seconds()),
 		"force_no_cache":    entry.Config.ForceNoCache,
-		"plugin_name":       entry.Config.PluginName,
 	}
 	if rawVal, ok := entry.synthesizedConfigCache.Load("audit_non_hmac_request_keys"); ok {
 		entryConfig["audit_non_hmac_request_keys"] = rawVal.([]string)
@@ -600,6 +680,12 @@ func mountInfo(entry *MountEntry) map[string]interface{} {
 	}
 	if rawVal, ok := entry.synthesizedConfigCache.Load("passthrough_request_headers"); ok {
 		entryConfig["passthrough_request_headers"] = rawVal.([]string)
+	}
+	if rawVal, ok := entry.synthesizedConfigCache.Load("allowed_response_headers"); ok {
+		entryConfig["allowed_response_headers"] = rawVal.([]string)
+	}
+	if entry.Table == credentialTableType {
+		entryConfig["token_type"] = entry.Config.TokenType.String()
 	}
 
 	info["config"] = entryConfig
@@ -718,15 +804,14 @@ func (b *SystemBackend) handleMount(ctx context.Context, req *logical.Request, d
 		return logical.ErrorResponse(
 				"backend type must be specified as a string"),
 			logical.ErrInvalidRequest
-
 	case "plugin":
 		// Only set plugin-name if mount is of type plugin, with apiConfig.PluginName
 		// option taking precedence.
 		switch {
 		case apiConfig.PluginName != "":
-			config.PluginName = apiConfig.PluginName
+			logicalType = apiConfig.PluginName
 		case pluginName != "":
-			config.PluginName = pluginName
+			logicalType = pluginName
 		default:
 			return logical.ErrorResponse(
 					"plugin_name must be provided for plugin backend"),
@@ -778,6 +863,9 @@ func (b *SystemBackend) handleMount(ctx context.Context, req *logical.Request, d
 	}
 	if len(apiConfig.PassthroughRequestHeaders) > 0 {
 		config.PassthroughRequestHeaders = apiConfig.PassthroughRequestHeaders
+	}
+	if len(apiConfig.AllowedResponseHeaders) > 0 {
+		config.AllowedResponseHeaders = apiConfig.AllowedResponseHeaders
 	}
 
 	// Create the mount entry
@@ -951,6 +1039,10 @@ func (b *SystemBackend) handleTuneReadCommon(ctx context.Context, path string) (
 		},
 	}
 
+	if mountEntry.Table == credentialTableType {
+		resp.Data["token_type"] = mountEntry.Config.TokenType.String()
+	}
+
 	if rawVal, ok := mountEntry.synthesizedConfigCache.Load("audit_non_hmac_request_keys"); ok {
 		resp.Data["audit_non_hmac_request_keys"] = rawVal.([]string)
 	}
@@ -965,6 +1057,10 @@ func (b *SystemBackend) handleTuneReadCommon(ctx context.Context, path string) (
 
 	if rawVal, ok := mountEntry.synthesizedConfigCache.Load("passthrough_request_headers"); ok {
 		resp.Data["passthrough_request_headers"] = rawVal.([]string)
+	}
+
+	if rawVal, ok := mountEntry.synthesizedConfigCache.Load("allowed_response_headers"); ok {
+		resp.Data["allowed_response_headers"] = rawVal.([]string)
 	}
 
 	if len(mountEntry.Options) > 0 {
@@ -1186,6 +1282,44 @@ func (b *SystemBackend) handleTuneWriteCommon(ctx context.Context, path string, 
 		}
 	}
 
+	if rawVal, ok := data.GetOk("token_type"); ok {
+		if !strings.HasPrefix(path, "auth/") {
+			return logical.ErrorResponse(fmt.Sprintf("'token_type' can only be modified on auth mounts")), logical.ErrInvalidRequest
+		}
+		if mountEntry.Type == "token" || mountEntry.Type == "ns_token" {
+			return logical.ErrorResponse(fmt.Sprintf("'token_type' cannot be set for 'token' or 'ns_token' auth mounts")), logical.ErrInvalidRequest
+		}
+
+		tokenType := logical.TokenTypeDefaultService
+		ttString := rawVal.(string)
+
+		switch ttString {
+		case "", "default-service":
+		case "default-batch":
+			tokenType = logical.TokenTypeDefaultBatch
+		case "service":
+			tokenType = logical.TokenTypeService
+		case "batch":
+			tokenType = logical.TokenTypeBatch
+		default:
+			return logical.ErrorResponse(fmt.Sprintf(
+				"invalid value for 'token_type'")), logical.ErrInvalidRequest
+		}
+
+		oldVal := mountEntry.Config.TokenType
+		mountEntry.Config.TokenType = tokenType
+
+		// Update the mount table
+		if err := b.Core.persistAuth(ctx, b.Core.auth, &mountEntry.Local); err != nil {
+			mountEntry.Config.TokenType = oldVal
+			return handleError(err)
+		}
+
+		if b.Core.logger.IsInfo() {
+			b.Core.logger.Info("mount tuning of token_type successful", "path", path, "token_type", ttString)
+		}
+	}
+
 	if rawVal, ok := data.GetOk("passthrough_request_headers"); ok {
 		headers := rawVal.([]string)
 
@@ -1212,20 +1346,46 @@ func (b *SystemBackend) handleTuneWriteCommon(ctx context.Context, path string, 
 		}
 	}
 
+	if rawVal, ok := data.GetOk("allowed_response_headers"); ok {
+		headers := rawVal.([]string)
+
+		oldVal := mountEntry.Config.AllowedResponseHeaders
+		mountEntry.Config.AllowedResponseHeaders = headers
+
+		// Update the mount table
+		var err error
+		switch {
+		case strings.HasPrefix(path, "auth/"):
+			err = b.Core.persistAuth(ctx, b.Core.auth, &mountEntry.Local)
+		default:
+			err = b.Core.persistMounts(ctx, b.Core.mounts, &mountEntry.Local)
+		}
+		if err != nil {
+			mountEntry.Config.AllowedResponseHeaders = oldVal
+			return handleError(err)
+		}
+
+		mountEntry.SyncCache()
+
+		if b.Core.logger.IsInfo() {
+			b.Core.logger.Info("mount tuning of allowed_response_headers successful", "path", path)
+		}
+	}
+
 	var err error
 	var resp *logical.Response
 	var options map[string]string
 	if optionsRaw, ok := data.GetOk("options"); ok {
 		options = optionsRaw.(map[string]string)
 	}
+
 	if len(options) > 0 {
 		b.Core.logger.Info("mount tuning of options", "path", path, "options", options)
+		newOptions := make(map[string]string)
+		var kvUpgraded bool
 
-		var changed bool
-		var numBuiltIn int
+		// The version options should only apply to the KV mount, check that first
 		if v, ok := options["version"]; ok {
-			changed = true
-			numBuiltIn++
 			// Special case to make sure we can not disable versioning once it's
 			// enabled. If the vkv backend suports downgrading this can be removed.
 			meVersion, err := parseutil.ParseInt(mountEntry.Options["version"])
@@ -1236,39 +1396,64 @@ func (b *SystemBackend) handleTuneWriteCommon(ctx context.Context, path string, 
 			if err != nil {
 				return handleError(errwrap.Wrapf("unable to parse options: {{err}}", err))
 			}
+
+			// Only accept valid versions
+			switch optVersion {
+			case 1:
+			case 2:
+			default:
+				return logical.ErrorResponse(fmt.Sprintf("invalid version provided: %d", optVersion)), logical.ErrInvalidRequest
+			}
+
 			if meVersion > optVersion {
+				// Return early if version option asks for a downgrade
 				return logical.ErrorResponse(fmt.Sprintf("cannot downgrade mount from version %d", meVersion)), logical.ErrInvalidRequest
 			}
 			if meVersion < optVersion {
+				kvUpgraded = true
 				resp = &logical.Response{}
 				resp.AddWarning(fmt.Sprintf("Upgrading mount from version %d to version %d. This mount will be unavailable for a brief period and will resume service shortly.", meVersion, optVersion))
 			}
 		}
-		if options != nil {
-			// For anything we don't recognize and provide special handling,
-			// always write
-			if len(options) > numBuiltIn {
-				changed = true
+
+		// Upsert options value to a copy of the existing mountEntry's options
+		for k, v := range mountEntry.Options {
+			newOptions[k] = v
+		}
+		for k, v := range options {
+			// If the value of the provided option is empty, delete the key We
+			// special-case the version value here to guard against KV downgrades, but
+			// this piece could potentially be refactored in the future to be non-KV
+			// specific.
+			if len(v) == 0 && k != "version" {
+				delete(newOptions, k)
+			} else {
+				newOptions[k] = v
 			}
 		}
 
-		if changed {
-			oldVal := mountEntry.Options
-			mountEntry.Options = options
-			// Update the mount table
-			switch {
-			case strings.HasPrefix(path, "auth/"):
-				err = b.Core.persistAuth(ctx, b.Core.auth, &mountEntry.Local)
-			default:
-				err = b.Core.persistMounts(ctx, b.Core.mounts, &mountEntry.Local)
-			}
+		// Update the mount table
+		oldVal := mountEntry.Options
+		mountEntry.Options = newOptions
+		switch {
+		case strings.HasPrefix(path, "auth/"):
+			err = b.Core.persistAuth(ctx, b.Core.auth, &mountEntry.Local)
+		default:
+			err = b.Core.persistMounts(ctx, b.Core.mounts, &mountEntry.Local)
+		}
+		if err != nil {
+			mountEntry.Options = oldVal
+			return handleError(err)
+		}
+
+		// Reload the backend to kick off the upgrade process. It should only apply to KV backend so we
+		// trigger based on the version logic above.
+		if kvUpgraded {
+			err = b.Core.reloadBackendCommon(ctx, mountEntry, strings.HasPrefix(path, credentialRoutePrefix))
 			if err != nil {
-				mountEntry.Options = oldVal
-				return handleError(err)
+				b.Core.logger.Error("mount tuning of options: could not reload backend", "error", err, "path", path, "options", options)
 			}
 
-			// Reload the backend to kick off the upgrade process.
-			b.Core.reloadBackendCommon(ctx, mountEntry, strings.HasPrefix(path, credentialRoutePrefix))
 		}
 	}
 
@@ -1461,37 +1646,10 @@ func (b *SystemBackend) handleAuthTable(ctx context.Context, req *logical.Reques
 			continue
 		}
 
-		info := map[string]interface{}{
-			"type":        entry.Type,
-			"description": entry.Description,
-			"accessor":    entry.Accessor,
-			"local":       entry.Local,
-			"seal_wrap":   entry.SealWrap,
-			"options":     entry.Options,
-		}
-		entryConfig := map[string]interface{}{
-			"default_lease_ttl": int64(entry.Config.DefaultLeaseTTL.Seconds()),
-			"max_lease_ttl":     int64(entry.Config.MaxLeaseTTL.Seconds()),
-			"plugin_name":       entry.Config.PluginName,
-		}
-		if rawVal, ok := entry.synthesizedConfigCache.Load("audit_non_hmac_request_keys"); ok {
-			entryConfig["audit_non_hmac_request_keys"] = rawVal.([]string)
-		}
-		if rawVal, ok := entry.synthesizedConfigCache.Load("audit_non_hmac_response_keys"); ok {
-			entryConfig["audit_non_hmac_response_keys"] = rawVal.([]string)
-		}
-		// Even though empty value is valid for ListingVisibility, we can ignore
-		// this case during mount since there's nothing to unset/hide.
-		if len(entry.Config.ListingVisibility) > 0 {
-			entryConfig["listing_visibility"] = entry.Config.ListingVisibility
-		}
-		if rawVal, ok := entry.synthesizedConfigCache.Load("passthrough_request_headers"); ok {
-			entryConfig["passthrough_request_headers"] = rawVal.([]string)
-		}
-
-		info["config"] = entryConfig
+		info := mountInfo(entry)
 		resp.Data[entry.Path] = info
 	}
+
 	return resp, nil
 }
 
@@ -1563,20 +1721,33 @@ func (b *SystemBackend) handleEnableAuth(ctx context.Context, req *logical.Reque
 			logical.ErrInvalidRequest
 	}
 
+	switch apiConfig.TokenType {
+	case "", "default-service":
+		config.TokenType = logical.TokenTypeDefaultService
+	case "default-batch":
+		config.TokenType = logical.TokenTypeDefaultBatch
+	case "service":
+		config.TokenType = logical.TokenTypeService
+	case "batch":
+		config.TokenType = logical.TokenTypeBatch
+	default:
+		return logical.ErrorResponse(fmt.Sprintf(
+			"invalid value for 'token_type'")), logical.ErrInvalidRequest
+	}
+
 	switch logicalType {
 	case "":
 		return logical.ErrorResponse(
 				"backend type must be specified as a string"),
 			logical.ErrInvalidRequest
-
 	case "plugin":
 		// Only set plugin name if mount is of type plugin, with apiConfig.PluginName
 		// option taking precedence.
 		switch {
 		case apiConfig.PluginName != "":
-			config.PluginName = apiConfig.PluginName
+			logicalType = apiConfig.PluginName
 		case pluginName != "":
-			config.PluginName = pluginName
+			logicalType = pluginName
 		default:
 			return logical.ErrorResponse(
 					"plugin_name must be provided for plugin backend"),
@@ -1603,6 +1774,9 @@ func (b *SystemBackend) handleEnableAuth(ctx context.Context, req *logical.Reque
 	}
 	if len(apiConfig.PassthroughRequestHeaders) > 0 {
 		config.PassthroughRequestHeaders = apiConfig.PassthroughRequestHeaders
+	}
+	if len(apiConfig.AllowedResponseHeaders) > 0 {
+		config.AllowedResponseHeaders = apiConfig.AllowedResponseHeaders
 	}
 
 	// Create the mount entry
@@ -1997,6 +2171,12 @@ func (b *SystemBackend) handleRawRead(ctx context.Context, req *logical.Request,
 		}
 	}
 
+	// Run additional checks if needed
+	if err := checkRaw(b, path); err != nil {
+		b.Core.logger.Warn(err.Error(), "path", path)
+		return logical.ErrorResponse("cannot read '%s'", path), logical.ErrInvalidRequest
+	}
+
 	entry, err := b.Core.barrier.Get(ctx, path)
 	if err != nil {
 		return handleErrorNoReadOnlyForward(err)
@@ -2040,7 +2220,7 @@ func (b *SystemBackend) handleRawWrite(ctx context.Context, req *logical.Request
 	}
 
 	value := data.Get("value").(string)
-	entry := &Entry{
+	entry := &logical.StorageEntry{
 		Key:   path,
 		Value: []byte(value),
 	}
@@ -2081,6 +2261,12 @@ func (b *SystemBackend) handleRawList(ctx context.Context, req *logical.Request,
 			err := fmt.Sprintf("cannot list '%s'", path)
 			return logical.ErrorResponse(err), logical.ErrInvalidRequest
 		}
+	}
+
+	// Run additional checks if needed
+	if err := checkRaw(b, path); err != nil {
+		b.Core.logger.Warn(err.Error(), "path", path)
+		return logical.ErrorResponse("cannot list '%s'", path), logical.ErrInvalidRequest
 	}
 
 	keys, err := b.Core.barrier.List(ctx, path)
@@ -2139,7 +2325,7 @@ func (b *SystemBackend) handleRotate(ctx context.Context, req *logical.Request, 
 
 	// Write to the canary path, which will force a synchronous truing during
 	// replication
-	if err := b.Core.barrier.Put(ctx, &Entry{
+	if err := b.Core.barrier.Put(ctx, &logical.StorageEntry{
 		Key:   coreKeyringCanaryPath,
 		Value: []byte(fmt.Sprintf("new-rotation-term-%d", newTerm)),
 	}); err != nil {
@@ -2338,6 +2524,14 @@ func (b *SystemBackend) responseWrappingUnwrap(ctx context.Context, te *logical.
 	}
 
 	return response, nil
+}
+
+func (b *SystemBackend) handleMetrics(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
+	format := data.Get("format").(string)
+	if format == "" {
+		format = metricsutil.FormatFromRequest(req)
+	}
+	return b.Core.metricsHelper.ResponseForFormat(format)
 }
 
 func (b *SystemBackend) handleWrappingLookup(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
@@ -2625,7 +2819,7 @@ func hasMountAccess(ctx context.Context, acl *ACL, path string) bool {
 		return false
 	}
 
-	// If an ealier policy is giving us access to the mount path then we can do
+	// If an earlier policy is giving us access to the mount path then we can do
 	// a fast return.
 	capabilities := acl.Capabilities(ctx, ns.TrimmedPath(path))
 	if !strutil.StrListContains(capabilities, DenyCapability) {
@@ -2660,7 +2854,7 @@ func hasMountAccess(ctx context.Context, acl *ACL, path string) bool {
 
 	acl.exactRules.WalkPrefix(path, walkFn)
 	if !aclCapabilitiesGiven {
-		acl.globRules.WalkPrefix(path, walkFn)
+		acl.prefixRules.WalkPrefix(path, walkFn)
 	}
 
 	return aclCapabilitiesGiven
@@ -2691,10 +2885,6 @@ func (b *SystemBackend) pathInternalUIMountsRead(ctx context.Context, req *logic
 		// Load the ACL policies so we can walk the prefix for this mount
 		acl, te, entity, _, err = b.Core.fetchACLTokenEntryAndEntity(ctx, req)
 		if err != nil {
-			if errwrap.ContainsType(err, new(TemplateError)) {
-				b.Core.logger.Warn("permission denied due to a templated policy being invalid or containing directives not satisfied by the requestor", "error", err)
-				err = logical.ErrPermissionDenied
-			}
 			return nil, err
 		}
 		if entity != nil && entity.Disabled {
@@ -2713,7 +2903,7 @@ func (b *SystemBackend) pathInternalUIMountsRead(ctx context.Context, req *logic
 		}
 
 		if isAuthed {
-			return hasMountAccess(ctx, acl, ns.Path+me.Path)
+			return hasMountAccess(ctx, acl, me.Namespace().Path+me.Path)
 		}
 
 		return false
@@ -2721,7 +2911,15 @@ func (b *SystemBackend) pathInternalUIMountsRead(ctx context.Context, req *logic
 
 	b.Core.mountsLock.RLock()
 	for _, entry := range b.Core.mounts.Entries {
-		if hasAccess(ctx, entry) && ns.ID == entry.NamespaceID {
+		filtered, err := b.Core.checkReplicatedFiltering(ctx, entry, "")
+		if err != nil {
+			return nil, err
+		}
+		if filtered {
+			continue
+		}
+
+		if ns.ID == entry.NamespaceID && hasAccess(ctx, entry) {
 			if isAuthed {
 				// If this is an authed request return all the mount info
 				secretMounts[entry.Path] = mountInfo(entry)
@@ -2738,7 +2936,15 @@ func (b *SystemBackend) pathInternalUIMountsRead(ctx context.Context, req *logic
 
 	b.Core.authLock.RLock()
 	for _, entry := range b.Core.auth.Entries {
-		if hasAccess(ctx, entry) && ns.ID == entry.NamespaceID {
+		filtered, err := b.Core.checkReplicatedFiltering(ctx, entry, credentialRoutePrefix)
+		if err != nil {
+			return nil, err
+		}
+		if filtered {
+			continue
+		}
+
+		if ns.ID == entry.NamespaceID && hasAccess(ctx, entry) {
 			if isAuthed {
 				// If this is an authed request return all the mount info
 				authMounts[entry.Path] = mountInfo(entry)
@@ -2765,6 +2971,11 @@ func (b *SystemBackend) pathInternalUIMountRead(ctx context.Context, req *logica
 
 	errResp := logical.ErrorResponse(fmt.Sprintf("preflight capability check returned 403, please ensure client's policies grant access to path %q", path))
 
+	ns, err := namespace.FromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	me := b.Core.router.MatchingMountEntry(ctx, path)
 	if me == nil {
 		// Return a permission denied error here so this path cannot be used to
@@ -2772,18 +2983,25 @@ func (b *SystemBackend) pathInternalUIMountRead(ctx context.Context, req *logica
 		return errResp, logical.ErrPermissionDenied
 	}
 
+	filtered, err := b.Core.checkReplicatedFiltering(ctx, me, "")
+	if err != nil {
+		return nil, err
+	}
+	if filtered {
+		return errResp, logical.ErrPermissionDenied
+	}
+
 	resp := &logical.Response{
 		Data: mountInfo(me),
 	}
 	resp.Data["path"] = me.Path
+	if ns.ID != me.Namespace().ID {
+		resp.Data["path"] = me.Namespace().Path + me.Path
+	}
 
 	// Load the ACL policies so we can walk the prefix for this mount
 	acl, te, entity, _, err := b.Core.fetchACLTokenEntryAndEntity(ctx, req)
 	if err != nil {
-		if errwrap.ContainsType(err, new(TemplateError)) {
-			b.Core.logger.Warn("permission denied due to a templated policy being invalid or containing directives not satisfied by the requestor", "error", err)
-			err = logical.ErrPermissionDenied
-		}
 		return nil, err
 	}
 	if entity != nil && entity.Disabled {
@@ -2795,13 +3013,23 @@ func (b *SystemBackend) pathInternalUIMountRead(ctx context.Context, req *logica
 		return nil, logical.ErrPermissionDenied
 	}
 
-	ns, err := namespace.FromContext(ctx)
+	if !hasMountAccess(ctx, acl, ns.Path+me.Path) {
+		return errResp, logical.ErrPermissionDenied
+	}
+
+	return resp, nil
+}
+
+func (b *SystemBackend) pathInternalCountersRequests(ctx context.Context, req *logical.Request, d *framework.FieldData) (*logical.Response, error) {
+	counters, err := b.Core.loadAllRequestCounters(ctx, time.Now())
 	if err != nil {
 		return nil, err
 	}
 
-	if !hasMountAccess(ctx, acl, ns.Path+me.Path) {
-		return errResp, logical.ErrPermissionDenied
+	resp := &logical.Response{
+		Data: map[string]interface{}{
+			"counters": counters,
+		},
 	}
 
 	return resp, nil
@@ -2815,10 +3043,6 @@ func (b *SystemBackend) pathInternalUIResultantACL(ctx context.Context, req *log
 
 	acl, te, entity, _, err := b.Core.fetchACLTokenEntryAndEntity(ctx, req)
 	if err != nil {
-		if errwrap.ContainsType(err, new(TemplateError)) {
-			b.Core.logger.Warn("permission denied due to a templated policy being invalid or containing directives not satisfied by the requestor", "error", err)
-			err = logical.ErrPermissionDenied
-		}
 		return nil, err
 	}
 
@@ -2912,10 +3136,118 @@ func (b *SystemBackend) pathInternalUIResultantACL(ctx context.Context, req *log
 	}
 
 	acl.exactRules.Walk(exactWalkFn)
-	acl.globRules.Walk(globWalkFn)
+	acl.prefixRules.Walk(globWalkFn)
 
 	resp.Data["exact_paths"] = exact
 	resp.Data["glob_paths"] = glob
+
+	return resp, nil
+}
+
+func (b *SystemBackend) pathInternalOpenAPI(ctx context.Context, req *logical.Request, d *framework.FieldData) (*logical.Response, error) {
+
+	// Limit output to authorized paths
+	resp, err := b.pathInternalUIMountsRead(ctx, req, d)
+	if err != nil {
+		return nil, err
+	}
+
+	context := d.Get("context").(string)
+
+	// Set up target document and convert to map[string]interface{} which is what will
+	// be received from plugin backends.
+	doc := framework.NewOASDocument()
+
+	procMountGroup := func(group, mountPrefix string) error {
+		for mount := range resp.Data[group].(map[string]interface{}) {
+			backend := b.Core.router.MatchingBackend(ctx, mountPrefix+mount)
+
+			if backend == nil {
+				continue
+			}
+
+			req := &logical.Request{
+				Operation: logical.HelpOperation,
+			}
+
+			resp, err := backend.HandleRequest(ctx, req)
+			if err != nil {
+				return err
+			}
+
+			var backendDoc *framework.OASDocument
+
+			// Normalize response type, which will be different if received
+			// from an external plugin.
+			switch v := resp.Data["openapi"].(type) {
+			case *framework.OASDocument:
+				backendDoc = v
+			case map[string]interface{}:
+				backendDoc, err = framework.NewOASDocumentFromMap(v)
+				if err != nil {
+					return err
+				}
+			default:
+				continue
+			}
+
+			// Prepare to add tags to default builtins that are
+			// type "unknown" and won't already be tagged.
+			var tag string
+			switch mountPrefix + mount {
+			case "cubbyhole/", "secret/":
+				tag = "secrets"
+			case "sys/":
+				tag = "system"
+			case "auth/token/":
+				tag = "auth"
+			case "identity/":
+				tag = "identity"
+			}
+
+			// Merge backend paths with existing document
+			for path, obj := range backendDoc.Paths {
+				path := strings.TrimPrefix(path, "/")
+
+				// Add tags to all of the operations if necessary
+				if tag != "" {
+					for _, op := range []*framework.OASOperation{obj.Get, obj.Post, obj.Delete} {
+						// TODO: a special override for identity is used used here because the backend
+						// is currently categorized as "secret", which will likely change. Also of interest
+						// is removing all tag handling here and providing the mount information to OpenAPI.
+						if op != nil && (len(op.Tags) == 0 || tag == "identity") {
+							op.Tags = []string{tag}
+						}
+					}
+				}
+
+				doc.Paths["/"+mountPrefix+mount+path] = obj
+			}
+		}
+		return nil
+	}
+
+	if err := procMountGroup("secret", ""); err != nil {
+		return nil, err
+	}
+	if err := procMountGroup("auth", "auth/"); err != nil {
+		return nil, err
+	}
+
+	doc.CreateOperationIDs(context)
+
+	buf, err := json.Marshal(doc)
+	if err != nil {
+		return nil, err
+	}
+
+	resp = &logical.Response{
+		Data: map[string]interface{}{
+			logical.HTTPStatusCode:  200,
+			logical.HTTPRawBody:     buf,
+			logical.HTTPContentType: "application/json",
+		},
+	}
 
 	return resp, nil
 }
@@ -3486,8 +3818,16 @@ This path responds to the following HTTP methods.
 		"Lists the headers configured to be audited.",
 		`Returns a list of headers that have been configured to be audited.`,
 	},
+	"plugin-catalog-list-all": {
+		"Lists all the plugins known to Vault",
+		`
+This path responds to the following HTTP methods.
+		LIST /
+			Returns a list of names of configured plugins.
+		`,
+	},
 	"plugin-catalog": {
-		"Configures the plugins known to vault",
+		"Configures the plugins known to Vault",
 		`
 This path responds to the following HTTP methods.
 		LIST /
@@ -3505,6 +3845,10 @@ This path responds to the following HTTP methods.
 	},
 	"plugin-catalog_name": {
 		"The name of the plugin",
+		"",
+	},
+	"plugin-catalog_type": {
+		"The type of the plugin, may be auth, secret, or database",
 		"",
 	},
 	"plugin-catalog_sha-256": {
@@ -3572,7 +3916,15 @@ This path responds to the following HTTP methods.
 		"",
 	},
 	"passthrough_request_headers": {
-		"A list of headers to whitelist and pass from the request to the backend.",
+		"A list of headers to whitelist and pass from the request to the plugin.",
+		"",
+	},
+	"allowed_response_headers": {
+		"A list of headers to whitelist and allow a plugin to set on responses.",
+		"",
+	},
+	"token_type": {
+		"The type of token to issue (service or batch).",
 		"",
 	},
 	"raw": {
@@ -3592,5 +3944,13 @@ This path responds to the following HTTP methods.
 	"internal-ui-resultant-acl": {
 		"Information about a token's resultant ACL. Internal API; its location, inputs, and outputs may change.",
 		"",
+	},
+	"metrics": {
+		"Export the metrics aggregated for telemetry purpose.",
+		"",
+	},
+	"internal-counters-requests": {
+		"Count of requests seen by this Vault cluster over time.",
+		"Count of requests seen by this Vault cluster over time. Not included in count: health checks, UI asset requests, requests forwarded from another cluster.",
 	},
 }
