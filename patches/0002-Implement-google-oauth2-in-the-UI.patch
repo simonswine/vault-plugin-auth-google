@@ -1,7 +1,7 @@
-From f7b82eaa137d42b2f849bd1e2544b328c78ff5bb Mon Sep 17 00:00:00 2001
+From a924064750aea796f786e413629c901e9923bf98 Mon Sep 17 00:00:00 2001
 From: Christian Simon <simon@swine.de>
 Date: Thu, 18 Oct 2018 16:06:05 +0100
-Subject: [PATCH 1/2] Implement google oauth2 in the UI
+Subject: [PATCH 2/3] Implement google oauth2 in the UI
 
 This allows a browser only login into Vault using Google's credential
 backends.
@@ -12,16 +12,15 @@ backends.
  ui/app/controllers/vault/cluster.js           |  3 ++-
  ui/app/controllers/vault/cluster/auth.js      | 25 ++++++++++++++++++-
  ui/app/helpers/supported-auth-backends.js     |  8 ++++++
- ui/app/mixins/cluster-route.js                | 16 +++++++-----
+ ui/app/mixins/cluster-route.js                | 10 +++++---
  ui/app/models/auth-config/google.js           |  2 ++
  ui/app/router.js                              |  1 +
- ui/app/routes/vault/cluster.js                |  4 +--
  ui/app/routes/vault/cluster/auth-callback.js  | 16 ++++++++++++
  ui/app/routes/vault/cluster/auth.js           |  8 +++++-
  ui/app/templates/components/auth-form.hbs     |  4 +--
  .../templates/partials/auth-form/google.hbs   |  0
  ui/app/templates/vault/cluster/auth.hbs       |  1 +
- 15 files changed, 124 insertions(+), 15 deletions(-)
+ 14 files changed, 119 insertions(+), 10 deletions(-)
  create mode 100644 ui/app/adapters/auth-callback.js
  create mode 100644 ui/app/models/auth-config/google.js
  create mode 100644 ui/app/routes/vault/cluster/auth-callback.js
@@ -50,11 +49,11 @@ index 000000000..3165e0ee7
 +  },
 +});
 diff --git a/ui/app/adapters/cluster.js b/ui/app/adapters/cluster.js
-index ea6a8c23c..2432b768d 100644
+index 1ba1a2f6a..67a008190 100644
 --- a/ui/app/adapters/cluster.js
 +++ b/ui/app/adapters/cluster.js
-@@ -101,10 +101,17 @@ export default ApplicationAdapter.extend({
-     const { token, password, username, path } = data;
+@@ -112,10 +112,17 @@ export default ApplicationAdapter.extend({
+     const { role, jwt, token, password, username, path } = data;
      const url = this.urlForAuth(backend, username, path);
      const verb = backend === 'token' ? 'GET' : 'POST';
 +
@@ -72,7 +71,7 @@ index ea6a8c23c..2432b768d 100644
        options.headers = {
          'X-Vault-Token': token,
        };
-@@ -132,6 +139,7 @@ export default ApplicationAdapter.extend({
+@@ -147,6 +154,7 @@ export default ApplicationAdapter.extend({
        ldap: `login/${encodeURIComponent(username)}`,
        okta: `login/${encodeURIComponent(username)}`,
        token: 'lookup-self',
@@ -81,7 +80,7 @@ index ea6a8c23c..2432b768d 100644
      const urlSuffix = authURLs[authBackend];
      const urlPrefix = path && authBackend !== 'token' ? path : authBackend;
 diff --git a/ui/app/components/auth-form.js b/ui/app/components/auth-form.js
-index 665854615..14f6b9d99 100644
+index 2bb11b369..ed89ad2bb 100644
 --- a/ui/app/components/auth-form.js
 +++ b/ui/app/components/auth-form.js
 @@ -30,11 +30,13 @@ export default Component.extend(DEFAULTS, {
@@ -128,16 +127,16 @@ index 665854615..14f6b9d99 100644
    unwrapToken: task(function*(token) {
      // will be using the token auth method, so set it here
      this.set('selectedAuth', 'token');
-@@ -154,7 +172,7 @@ export default Component.extend(DEFAULTS, {
+@@ -156,7 +174,7 @@ export default Component.extend(DEFAULTS, {
      }
    }),
  
--  showLoading: or('authenticate.isRunning', 'fetchMethods.isRunning', 'unwrapToken.isRunning'),
-+  showLoading: or('authenticate.isRunning', 'fetchMethods.isRunning', 'unwrapToken.isRunning', 'handleCallback.isRunning'),
+-  showLoading: or('isLoading', 'authenticate.isRunning', 'fetchMethods.isRunning', 'unwrapToken.isRunning'),
++  showLoading: or('isLoading', 'authenticate.isRunning', 'fetchMethods.isRunning', 'unwrapToken.isRunning', 'handleCallback.isRunning'),
  
    handleError(e) {
      this.set('loading', false);
-@@ -205,6 +223,11 @@ export default Component.extend(DEFAULTS, {
+@@ -222,6 +240,11 @@ export default Component.extend(DEFAULTS, {
        if (this.get('customPath') || get(backend, 'id')) {
          data.path = this.get('customPath') || get(backend, 'id');
        }
@@ -146,14 +145,14 @@ index 665854615..14f6b9d99 100644
 +      if (callback) {
 +          data = assign(data, callback)
 +      }
-       this.authenticate.perform(backend.type, data);
+       return this.authenticate.unlinked().perform(backend.type, data);
      },
    },
 diff --git a/ui/app/controllers/vault/cluster.js b/ui/app/controllers/vault/cluster.js
-index ed9327fa3..d08ffc34d 100644
+index aaa180178..7f0f89b33 100644
 --- a/ui/app/controllers/vault/cluster.js
 +++ b/ui/app/controllers/vault/cluster.js
-@@ -54,7 +54,8 @@ export default Controller.extend({
+@@ -55,7 +55,8 @@ export default Controller.extend({
        if (
          this.activeClusterName &&
          this.auth.currentToken &&
@@ -209,10 +208,10 @@ index 8036a9eee..be74896ca 100644
    updateNamespace: task(function*(value) {
      // debounce
 diff --git a/ui/app/helpers/supported-auth-backends.js b/ui/app/helpers/supported-auth-backends.js
-index 36ff7c453..b027dca93 100644
+index 85628915f..9973669e4 100644
 --- a/ui/app/helpers/supported-auth-backends.js
 +++ b/ui/app/helpers/supported-auth-backends.js
-@@ -41,6 +41,14 @@ const SUPPORTED_AUTH_BACKENDS = [
+@@ -57,6 +57,14 @@ const SUPPORTED_AUTH_BACKENDS = [
      displayNamePath: ['metadata.org', 'metadata.username'],
      formAttributes: ['token'],
    },
@@ -228,15 +227,16 @@ index 36ff7c453..b027dca93 100644
  
  export function supportedAuthBackends() {
 diff --git a/ui/app/mixins/cluster-route.js b/ui/app/mixins/cluster-route.js
-index 72d6de988..2d8530b72 100644
+index 9b814c99e..d0ca7569b 100644
 --- a/ui/app/mixins/cluster-route.js
 +++ b/ui/app/mixins/cluster-route.js
-@@ -5,16 +5,17 @@ import RSVP from 'rsvp';
+@@ -5,11 +5,12 @@ import RSVP from 'rsvp';
  const INIT = 'vault.cluster.init';
  const UNSEAL = 'vault.cluster.unseal';
  const AUTH = 'vault.cluster.auth';
 +const AUTH_CALLBACK = 'vault.cluster.auth-callback';
  const CLUSTER = 'vault.cluster';
+ const OIDC_CALLBACK = 'vault.cluster.oidc-callback';
  const DR_REPLICATION_SECONDARY = 'vault.cluster.replication-dr-promote';
  
 -export { INIT, UNSEAL, AUTH, CLUSTER, DR_REPLICATION_SECONDARY };
@@ -244,15 +244,7 @@ index 72d6de988..2d8530b72 100644
  
  export default Mixin.create({
    auth: service(),
- 
--  transitionToTargetRoute() {
--    const targetRoute = this.targetRouteName();
-+  transitionToTargetRoute(transition)  {
-+    const targetRoute = this.targetRouteName(transition);
-     if (targetRoute && targetRoute !== this.routeName) {
-       return this.transitionTo(targetRoute);
-     }
-@@ -22,8 +23,8 @@ export default Mixin.create({
+@@ -23,8 +24,8 @@ export default Mixin.create({
      return RSVP.resolve();
    },
  
@@ -263,12 +255,8 @@ index 72d6de988..2d8530b72 100644
    },
  
    clusterModel() {
-@@ -38,9 +39,12 @@ export default Mixin.create({
-     return !!get(this.controllerFor(INIT), 'keyData');
-   },
- 
--  targetRouteName() {
-+  targetRouteName(transition) {
+@@ -42,6 +43,9 @@ export default Mixin.create({
+   targetRouteName(transition) {
      const cluster = this.clusterModel();
      const isAuthed = this.authToken();
 +    if (!isAuthed && transition && transition.targetName == AUTH_CALLBACK) {
@@ -286,39 +274,17 @@ index 000000000..66657e064
 +import AuthConfig from '../auth-config';
 +export default AuthConfig.extend({});
 diff --git a/ui/app/router.js b/ui/app/router.js
-index 9f1c0e812..a6f83b81a 100644
+index b1b87d879..15e530f48 100644
 --- a/ui/app/router.js
 +++ b/ui/app/router.js
-@@ -9,6 +9,7 @@ const Router = EmberRouter.extend({
- Router.map(function() {
+@@ -10,6 +10,7 @@ Router.map(function() {
    this.route('vault', { path: '/' }, function() {
      this.route('cluster', { path: '/:cluster_name' }, function() {
+       this.route('oidc-callback', { path: '/auth/*auth_path/oidc/callback' });
 +      this.route('auth-callback', { path: '/auth/:auth_method/callback/:mount_path'});
        this.route('auth');
        this.route('init');
        this.route('logout');
-diff --git a/ui/app/routes/vault/cluster.js b/ui/app/routes/vault/cluster.js
-index 6ecf36522..07aa17e5c 100644
---- a/ui/app/routes/vault/cluster.js
-+++ b/ui/app/routes/vault/cluster.js
-@@ -88,7 +88,7 @@ export default Route.extend(ModelBoundaryRoute, ClusterRoute, {
-     .cancelOn('deactivate')
-     .keepLatest(),
- 
--  afterModel(model) {
-+  afterModel(model, transition) {
-     this._super(...arguments);
-     this.get('currentCluster').setCluster(model);
- 
-@@ -97,7 +97,7 @@ export default Route.extend(ModelBoundaryRoute, ClusterRoute, {
-     if (this.get('namespaceService.path') && !this.get('version.hasNamespaces')) {
-       return this.transitionTo(this.routeName, { queryParams: { namespace: '' } });
-     }
--    return this.transitionToTargetRoute();
-+    return this.transitionToTargetRoute(transition);
-   },
- 
-   setupController() {
 diff --git a/ui/app/routes/vault/cluster/auth-callback.js b/ui/app/routes/vault/cluster/auth-callback.js
 new file mode 100644
 index 000000000..21f3ad89a
@@ -368,19 +334,19 @@ index 2ac997372..d0a3bef46 100644
    },
    resetController(controller) {
 diff --git a/ui/app/templates/components/auth-form.hbs b/ui/app/templates/components/auth-form.hbs
-index 50ae2340d..b549c7e24 100644
+index 22ca15e94..432ce6781 100644
 --- a/ui/app/templates/components/auth-form.hbs
 +++ b/ui/app/templates/components/auth-form.hbs
-@@ -16,7 +16,7 @@
-             </li>
-           {{else}}
-             <li class="{{if (eq (or selectedAuthBackend.path selectedAuthBackend.type) methodKey) 'is-active' ''}}" data-test-auth-method>
+@@ -10,7 +10,7 @@
+       {{#each methodsToShow as |method|}}
+         {{#with (or method.path method.type) as |methodKey|}}
+             <li class="{{if (and selectedAuthIsPath (eq (or selectedAuthBackend.path selectedAuthBackend.type) methodKey)) 'is-active' ''}}" data-test-auth-method>
 -              {{#link-to 'vault.cluster.auth' cluster.name (query-params with=methodKey) data-test-auth-method-link=method.type}}
 +              {{#link-to 'vault.cluster.auth' cluster.name (query-params with=methodKey state=null code=null scope=null) data-test-auth-method-link=method.type}}
-                 {{or method.id method.typeDisplay}}
+                 {{or method.id (capitalize method.type)}}
                {{/link-to}}
              </li>
-@@ -25,7 +25,7 @@
+@@ -18,7 +18,7 @@
        {{/each}}
        {{#if hasMethodsWithPath}}
          <li class="{{if (not selectedAuthIsPath) 'is-active' ''}}" data-test-auth-method>
@@ -405,5 +371,5 @@ index 45d83012d..476e44e1c 100644
    </Page.content>
    <Page.footer>
 -- 
-2.19.1
+2.20.1
 
