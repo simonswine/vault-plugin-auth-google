@@ -39,11 +39,11 @@ RUN \
 # built in plugin into vault
 RUN git am /tmp/patches/0001-Integrate-Google-G-Suite-credentials-plugin.patch
 COPY ./vendor/google.golang.org/api/admin/directory/v1/*.go ./vendor/google.golang.org/api/admin/directory/v1/
-COPY google/*.go ./vendor/github.com/jetstack/vault-plugin-auth-google/google/
+COPY google/*.go ./vendor/github.com/simonswine/vault-plugin-auth-google/google/
 
 # rebuilt vault
 RUN \
-  sed -i "s/VersionPrerelease =.*/VersionPrerelease = \"jetstack1\"/g" version/version_base.go && \
+  sed -i "s/VersionPrerelease =.*/VersionPrerelease = \"simonswine1\"/g" version/version_base.go && \
   make bin XC_OSARCH=linux/amd64
 
 FROM alpine:3.8

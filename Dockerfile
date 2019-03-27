@@ -8,7 +8,7 @@ RUN curl -sL -o /usr/local/bin/dep ${DEP_URL} && \
     chmod +x /usr/local/bin/dep
 
 
-WORKDIR /go/src/github.com/jetstack/vault-plugin-auth-google
+WORKDIR /go/src/github.com/simonswine/vault-plugin-auth-google
 
 ADD Gopkg.toml Gopkg.lock ./
 
@@ -25,5 +25,5 @@ RUN echo "#!/bin/sh" > setup-vault-plugin-auth-google.sh && \
 
 FROM alpine:3.9
 
-COPY --from=build /go/src/github.com/jetstack/vault-plugin-auth-google/vault-plugin-auth-google /usr/local/bin
-COPY --from=build /go/src/github.com/jetstack/vault-plugin-auth-google/setup-vault-plugin-auth-google.sh /usr/local/bin
+COPY --from=build /go/src/github.com/simonswine/vault-plugin-auth-google/vault-plugin-auth-google /usr/local/bin
+COPY --from=build /go/src/github.com/simonswine/vault-plugin-auth-google/setup-vault-plugin-auth-google.sh /usr/local/bin
