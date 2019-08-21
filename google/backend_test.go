@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"github.com/golang/mock/gomock"
-	"github.com/hashicorp/vault/logical"
-	logicaltest "github.com/hashicorp/vault/logical/testing"
+	logicaltest "github.com/hashicorp/vault/helper/testhelpers/logical"
+	"github.com/hashicorp/vault/sdk/logical"
 	"golang.org/x/oauth2"
 	"google.golang.org/api/admin/directory/v1"
 	goauth "google.golang.org/api/oauth2/v2"
@@ -151,7 +151,7 @@ func TestBackend_CodeURL(t *testing.T) {
 	}
 
 	logicaltest.Test(t, logicaltest.TestCase{
-		Backend: b,
+		LogicalBackend: b,
 		Steps: []logicaltest.TestStep{
 			testConfigWrite(t, noConfigData),
 			cliMissing,
@@ -364,7 +364,7 @@ func TestBackend_Login(t *testing.T) {
 	)
 
 	logicaltest.Test(t, logicaltest.TestCase{
-		Backend: b,
+		LogicalBackend: b,
 		Steps: []logicaltest.TestStep{
 			testConfigWrite(t, configData),
 			checkConfigRead,
@@ -454,7 +454,7 @@ func TestBackend_LoginAuthorisation(t *testing.T) {
 	}
 
 	logicaltest.Test(t, logicaltest.TestCase{
-		Backend: b,
+		LogicalBackend: b,
 		Steps: []logicaltest.TestStep{
 			// test defaults, every one allowed
 			testConfigWrite(t, configData),

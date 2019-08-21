@@ -14,8 +14,8 @@ import (
 	"google.golang.org/api/admin/directory/v1"
 	goauth "google.golang.org/api/oauth2/v2"
 
-	"github.com/hashicorp/vault/logical"
-	"github.com/hashicorp/vault/logical/framework"
+	"github.com/hashicorp/vault/sdk/logical"
+	"github.com/hashicorp/vault/sdk/framework"
 )
 
 const (
