@@ -41,6 +41,7 @@ RUN git checkout go.mod
 
 # built in plugin into vault
 RUN git am /tmp/patches/0001-Integrate-Google-G-Suite-credentials-plugin.patch
+RUN git am /tmp/patches/0002-Integrate-GPG-logical-plugin.patch
 
 # rebuilt vault
 RUN \
