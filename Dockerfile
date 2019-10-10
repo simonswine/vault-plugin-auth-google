@@ -1,18 +1,10 @@
-FROM golang:1.12.1 AS build
-
-ENV DEP_URL https://github.com/golang/dep/releases/download/v0.5.0/dep-linux-amd64
-ENV DEP_HASH 287b08291e14f1fae8ba44374b26a2b12eb941af3497ed0ca649253e21ba2f83
-
-RUN curl -sL -o /usr/local/bin/dep ${DEP_URL} && \
-    echo "${DEP_HASH}  /usr/local/bin/dep" | sha256sum -c && \
-    chmod +x /usr/local/bin/dep
-
+FROM golang:1.13.1 AS build
 
 WORKDIR /go/src/github.com/simonswine/vault-plugin-auth-google
 
-ADD Gopkg.toml Gopkg.lock ./
+ADD go.mod go.sum ./
 
-RUN dep ensure -vendor-only
+RUN go mod download
 
 ADD . ./
 

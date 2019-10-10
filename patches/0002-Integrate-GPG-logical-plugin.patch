@@ -1,0 +1,59 @@
+From 82d370c1506dc09d1b83abd9f886a78683669c4f Mon Sep 17 00:00:00 2001
+From: Christian Simon <simon@swine.de>
+Date: Thu, 10 Oct 2019 15:32:46 +0100
+Subject: [PATCH 2/4] Integrate GPG logical plugin
+
+---
+ go.mod                            | 1 +
+ go.sum                            | 2 ++
+ helper/builtinplugins/registry.go | 2 ++
+ 3 files changed, 5 insertions(+)
+
+diff --git a/go.mod b/go.mod
+index f8bc9f40c..90eeb979b 100644
+--- a/go.mod
++++ b/go.mod
+@@ -10,6 +10,7 @@ require (
+ 	cloud.google.com/go v0.39.0
+ 	github.com/Azure/azure-sdk-for-go v29.0.0+incompatible
+ 	github.com/Azure/go-autorest v11.7.1+incompatible
++	github.com/LeSuisse/vault-gpg-plugin v0.2.3
+ 	github.com/NYTimes/gziphandler v1.1.1
+ 	github.com/SAP/go-hdb v0.14.1
+ 	github.com/abdullin/seq v0.0.0-20160510034733-d5467c17e7af // indirect
+diff --git a/go.sum b/go.sum
+index b449075f3..793b4a755 100644
+--- a/go.sum
++++ b/go.sum
+@@ -20,6 +20,8 @@ github.com/DataDog/datadog-go v2.2.0+incompatible h1:V5BKkxACZLjzHjSgBbr2gvLA2Ae
+ github.com/DataDog/datadog-go v2.2.0+incompatible/go.mod h1:LButxg5PwREeZtORoXG3tL4fMGNddJ+vMq1mwgfaqoQ=
+ github.com/Jeffail/gabs v1.1.1 h1:V0uzR08Hj22EX8+8QMhyI9sX2hwRu+/RJhJUmnwda/E=
+ github.com/Jeffail/gabs v1.1.1/go.mod h1:6xMvQMK4k33lb7GUUpaAPh6nKMmemQeg5d4gn7/bOXc=
++github.com/LeSuisse/vault-gpg-plugin v0.2.3 h1:Ycy0ZwMO2hNeYSDjG3QqxGitUTKUrCWcOIKnZcFIxWU=
++github.com/LeSuisse/vault-gpg-plugin v0.2.3/go.mod h1:ZzmxrIhzAwKfauriyWv7neSApfx/kmdnhvr6FUWTiPM=
+ github.com/Masterminds/semver v1.4.2 h1:WBLTQ37jOCzSLtXNdoo8bNM8876KhNqOKvrlGITgsTc=
+ github.com/Masterminds/semver v1.4.2/go.mod h1:MB6lktGJrhw8PrUyiEoblNEGEQ+RzHPF078ddwwvV3Y=
+ github.com/Microsoft/go-winio v0.4.13 h1:Hmi80lzZuI/CaYmlJp/b+FjZdRZhKu9c2mDVqKlLWVs=
+diff --git a/helper/builtinplugins/registry.go b/helper/builtinplugins/registry.go
+index 34c36b8c8..85c98cc23 100644
+--- a/helper/builtinplugins/registry.go
++++ b/helper/builtinplugins/registry.go
+@@ -33,6 +33,7 @@ import (
+ 	dbMysql "github.com/hashicorp/vault/plugins/database/mysql"
+ 	dbPostgres "github.com/hashicorp/vault/plugins/database/postgresql"
+ 
++	logicalGpg "github.com/LeSuisse/vault-gpg-plugin/gpg"
+ 	logicalAd "github.com/hashicorp/vault-plugin-secrets-ad/plugin"
+ 	logicalAlicloud "github.com/hashicorp/vault-plugin-secrets-alicloud"
+ 	logicalAzure "github.com/hashicorp/vault-plugin-secrets-azure"
+@@ -124,6 +125,7 @@ func newRegistry() *registry {
+ 			"ssh":        logicalSsh.Factory,
+ 			"totp":       logicalTotp.Factory,
+ 			"transit":    logicalTransit.Factory,
++			"gpg":        logicalGpg.Factory,
+ 		},
+ 	}
+ 
+-- 
+2.21.0
+
