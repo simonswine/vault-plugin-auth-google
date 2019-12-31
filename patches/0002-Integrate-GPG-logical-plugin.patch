@@ -1,4 +1,4 @@
-From 82d370c1506dc09d1b83abd9f886a78683669c4f Mon Sep 17 00:00:00 2001
+From 4ca3170f9f337b2fc357697544fc27d821f21bfd Mon Sep 17 00:00:00 2001
 From: Christian Simon <simon@swine.de>
 Date: Thu, 10 Oct 2019 15:32:46 +0100
 Subject: [PATCH 2/4] Integrate GPG logical plugin
@@ -10,23 +10,23 @@ Subject: [PATCH 2/4] Integrate GPG logical plugin
  3 files changed, 5 insertions(+)
 
 diff --git a/go.mod b/go.mod
-index f8bc9f40c..90eeb979b 100644
+index 7b5c17d18..556d3c2d0 100644
 --- a/go.mod
 +++ b/go.mod
-@@ -10,6 +10,7 @@ require (
+@@ -12,6 +12,7 @@ require (
  	cloud.google.com/go v0.39.0
  	github.com/Azure/azure-sdk-for-go v29.0.0+incompatible
  	github.com/Azure/go-autorest v11.7.1+incompatible
 +	github.com/LeSuisse/vault-gpg-plugin v0.2.3
  	github.com/NYTimes/gziphandler v1.1.1
  	github.com/SAP/go-hdb v0.14.1
- 	github.com/abdullin/seq v0.0.0-20160510034733-d5467c17e7af // indirect
+ 	github.com/StackExchange/wmi v0.0.0-20180116203802-5d049714c4a6 // indirect
 diff --git a/go.sum b/go.sum
-index b449075f3..793b4a755 100644
+index 861a51ef5..51ebaecf7 100644
 --- a/go.sum
 +++ b/go.sum
-@@ -20,6 +20,8 @@ github.com/DataDog/datadog-go v2.2.0+incompatible h1:V5BKkxACZLjzHjSgBbr2gvLA2Ae
- github.com/DataDog/datadog-go v2.2.0+incompatible/go.mod h1:LButxg5PwREeZtORoXG3tL4fMGNddJ+vMq1mwgfaqoQ=
+@@ -24,6 +24,8 @@ github.com/DataDog/datadog-go v3.2.0+incompatible h1:qSG2N4FghB1He/r2mFrWKCaL7dX
+ github.com/DataDog/datadog-go v3.2.0+incompatible/go.mod h1:LButxg5PwREeZtORoXG3tL4fMGNddJ+vMq1mwgfaqoQ=
  github.com/Jeffail/gabs v1.1.1 h1:V0uzR08Hj22EX8+8QMhyI9sX2hwRu+/RJhJUmnwda/E=
  github.com/Jeffail/gabs v1.1.1/go.mod h1:6xMvQMK4k33lb7GUUpaAPh6nKMmemQeg5d4gn7/bOXc=
 +github.com/LeSuisse/vault-gpg-plugin v0.2.3 h1:Ycy0ZwMO2hNeYSDjG3QqxGitUTKUrCWcOIKnZcFIxWU=
@@ -55,5 +55,5 @@ index 34c36b8c8..85c98cc23 100644
  	}
  
 -- 
-2.21.0
+2.24.1
 
