@@ -4,63 +4,10 @@ go 1.12
 
 require (
 	cloud.google.com/go v0.39.0
-	github.com/Jeffail/gabs v1.2.0
-	github.com/NYTimes/gziphandler v1.1.1
-	github.com/SermoDigital/jose v0.0.0-20161205224733-f6df55f235c2
-	github.com/armon/go-metrics v0.0.0-20190430140413-ec5e00d3c878
-	github.com/armon/go-radix v1.0.0
-	github.com/beorn7/perks v0.0.0-20180321164747-3a771d992973
-	github.com/coreos/go-systemd v0.0.0-20181012123002-c6f51f82210d // indirect
-	github.com/elazarl/go-bindata-assetfs v1.0.0
-	github.com/go-sql-driver/mysql v1.4.1
-	github.com/golang/mock v1.2.0
-	github.com/golang/protobuf v1.3.1
-	github.com/golang/snappy v0.0.1
-	github.com/hashicorp/errwrap v1.0.0
-	github.com/hashicorp/go-cleanhttp v0.5.1
-	github.com/hashicorp/go-hclog v0.9.2
-	github.com/hashicorp/go-immutable-radix v1.0.0
-	github.com/hashicorp/go-memdb v1.0.2
-	github.com/hashicorp/go-multierror v1.0.0
-	github.com/hashicorp/go-plugin v1.0.1
-	github.com/hashicorp/go-retryablehttp v0.5.4
-	github.com/hashicorp/go-rootcerts v1.0.1
-	github.com/hashicorp/go-sockaddr v1.0.2
-	github.com/hashicorp/go-uuid v1.0.1
-	github.com/hashicorp/go-version v1.2.0
-	github.com/hashicorp/golang-lru v0.5.1
-	github.com/hashicorp/hcl v1.0.0
-	github.com/hashicorp/vault v1.2.2
-	github.com/hashicorp/vault/api v1.0.5-0.20190814205542-3b036e58e950
-	github.com/hashicorp/vault/sdk v0.1.14-0.20190814205504-1cad00d1133b
-	github.com/hashicorp/yamux v0.0.0-20181012175058-2f1d1f20f75d
-	github.com/jefferai/jsonx v1.0.0
-	github.com/keybase/go-crypto v0.0.0-20190403132359-d65b6b94177f
-	github.com/kr/pty v1.1.3 // indirect
-	github.com/lib/pq v1.1.1
-	github.com/matttproud/golang_protobuf_extensions v1.0.1
-	github.com/mitchellh/copystructure v1.0.0
-	github.com/mitchellh/go-homedir v1.1.0
-	github.com/mitchellh/go-testing-interface v1.0.0
-	github.com/mitchellh/mapstructure v1.1.2
-	github.com/mitchellh/reflectwalk v1.0.0
-	github.com/oklog/run v1.0.0
-	github.com/patrickmn/go-cache v2.1.0+incompatible
-	github.com/pierrec/lz4 v2.0.5+incompatible
-	github.com/prometheus/client_golang v0.9.3-0.20190127221311-3c4408c8b829
-	github.com/prometheus/client_model v0.0.0-20190129233127-fd36f4220a90
-	github.com/prometheus/common v0.2.0
-	github.com/prometheus/procfs v0.0.0-20190322151404-55ae3d9d5573
-	github.com/ryanuber/go-glob v1.0.0
-	go.opencensus.io v0.21.0
-	golang.org/x/crypto v0.0.0-20190513172903-22d7a77e9e5f
-	golang.org/x/net v0.0.0-20190620200207-3b0461eec859
+	github.com/hashicorp/go-uuid v1.0.2-0.20191001231223-f32f5fe8d6a8
+	github.com/hashicorp/vault v1.3.1
+	github.com/hashicorp/vault/api v1.0.5-0.20191216174727-9d51b36f3ae4
+	github.com/hashicorp/vault/sdk v0.1.14-0.20191218020134-06959d23b502
 	golang.org/x/oauth2 v0.0.0-20190402181905-9f3314589c9a
-	golang.org/x/sys v0.0.0-20190523142557-0e01d883c5c5
-	golang.org/x/text v0.3.2
-	golang.org/x/time v0.0.0-20190308202827-9d24e82272b4
 	google.golang.org/api v0.5.0
-	google.golang.org/appengine v1.6.0
-	google.golang.org/genproto v0.0.0-20190513181449-d00d292a067c
-	google.golang.org/grpc v1.22.0
 )
