@@ -1,4 +1,4 @@
-FROM golang:1.12.14 AS build
+FROM golang:1.12.17 AS build
 
 WORKDIR /go/src/github.com/simonswine/vault-plugin-auth-google
 
