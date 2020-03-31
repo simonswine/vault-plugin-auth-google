@@ -1,4 +1,4 @@
-From 4ca3170f9f337b2fc357697544fc27d821f21bfd Mon Sep 17 00:00:00 2001
+From f6e956a79c68805b363730dd4d1d44b8fca5985f Mon Sep 17 00:00:00 2001
 From: Christian Simon <simon@swine.de>
 Date: Thu, 10 Oct 2019 15:32:46 +0100
 Subject: [PATCH 2/4] Integrate GPG logical plugin
@@ -10,7 +10,7 @@ Subject: [PATCH 2/4] Integrate GPG logical plugin
  3 files changed, 5 insertions(+)
 
 diff --git a/go.mod b/go.mod
-index 7b5c17d18..556d3c2d0 100644
+index 755603a7e..a0025f345 100644
 --- a/go.mod
 +++ b/go.mod
 @@ -12,6 +12,7 @@ require (
@@ -22,7 +22,7 @@ index 7b5c17d18..556d3c2d0 100644
  	github.com/SAP/go-hdb v0.14.1
  	github.com/StackExchange/wmi v0.0.0-20180116203802-5d049714c4a6 // indirect
 diff --git a/go.sum b/go.sum
-index 861a51ef5..51ebaecf7 100644
+index f9f2d02e9..ffc97c605 100644
 --- a/go.sum
 +++ b/go.sum
 @@ -24,6 +24,8 @@ github.com/DataDog/datadog-go v3.2.0+incompatible h1:qSG2N4FghB1He/r2mFrWKCaL7dX
@@ -55,5 +55,5 @@ index 34c36b8c8..85c98cc23 100644
  	}
  
 -- 
-2.24.1
+2.25.1
 

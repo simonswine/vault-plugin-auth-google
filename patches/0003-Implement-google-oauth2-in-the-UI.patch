@@ -1,4 +1,4 @@
-From 7e41d3466c9135d091d26f6dae3e82fb9f9117fb Mon Sep 17 00:00:00 2001
+From 8a020fbfbe4c07f60b5992784890f856a3174320 Mon Sep 17 00:00:00 2001
 From: Christian Simon <simon@swine.de>
 Date: Thu, 18 Oct 2018 16:06:05 +0100
 Subject: [PATCH 3/4] Implement google oauth2 in the UI
@@ -165,7 +165,7 @@ index ddfb2e391..0c775ba0e 100644
          return true;
        }
 diff --git a/ui/app/controllers/vault/cluster/auth.js b/ui/app/controllers/vault/cluster/auth.js
-index e4f1f7b11..5add2511e 100644
+index 873376139..7c6fbf662 100644
 --- a/ui/app/controllers/vault/cluster/auth.js
 +++ b/ui/app/controllers/vault/cluster/auth.js
 @@ -1,5 +1,6 @@
@@ -187,7 +187,7 @@ index e4f1f7b11..5add2511e 100644
 +      { callbackCode: 'code'},
 +  ],
    wrappedToken: alias('vaultController.wrappedToken'),
-   authMethod: 'token',
+   authMethod: '',
    redirectTo: alias('vaultController.redirectTo'),
 +  callback: false,
 +  callbackState: null,
@@ -364,5 +364,5 @@ index 1cb533ee0..c3c6b7815 100644
    </Page.content>
    <Page.footer>
 -- 
-2.24.1
+2.25.1
 
