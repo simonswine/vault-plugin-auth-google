@@ -1,4 +1,4 @@
-FROM golang:1.12.17 AS build
+FROM golang:1.13.12 AS build
 
 
 WORKDIR /go/src/github.com/hashicorp/vault
@@ -14,7 +14,7 @@ RUN \
   xz-utils && \
   npm install yarn@1.10.1 -g
 
-ENV VAULT_TAG v1.3.4
+ENV VAULT_TAG v1.4.3
 
 RUN git clone https://github.com/hashicorp/vault.git . && \
     git checkout "${VAULT_TAG}" && \
@@ -43,7 +43,7 @@ RUN \
 RUN \
   make ember-dist static-assets
 
-RUN git checkout go.mod
+RUN git checkout go.mod helper/builtinplugins/registry.go
 
 # built in plugin into vault
 RUN git am /tmp/patches/0001-Integrate-Google-G-Suite-credentials-plugin.patch
@@ -54,7 +54,7 @@ RUN \
   sed -i "s/VersionPrerelease =.*/VersionPrerelease = \"simonswine1\"/g" sdk/version/version_base.go && \
   make bin XC_OSARCH=linux/amd64
 
-FROM alpine:3.10
+FROM alpine:3.11
 
 # Create a vault user and group first so the IDs get set the same way,
 # even as the rest of this may change over time.

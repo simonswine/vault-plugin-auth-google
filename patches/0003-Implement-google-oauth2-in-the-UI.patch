@@ -1,4 +1,4 @@
-From 8a020fbfbe4c07f60b5992784890f856a3174320 Mon Sep 17 00:00:00 2001
+From 9fa614e1dc8acf31007532bcadc099fa7c02eaec Mon Sep 17 00:00:00 2001
 From: Christian Simon <simon@swine.de>
 Date: Thu, 18 Oct 2018 16:06:05 +0100
 Subject: [PATCH 3/4] Implement google oauth2 in the UI
@@ -267,7 +267,7 @@ index 000000000..66657e064
 +import AuthConfig from '../auth-config';
 +export default AuthConfig.extend({});
 diff --git a/ui/app/router.js b/ui/app/router.js
-index 9618309e1..8fc948c62 100644
+index 2682227e0..b0e0848f4 100644
 --- a/ui/app/router.js
 +++ b/ui/app/router.js
 @@ -10,6 +10,7 @@ Router.map(function() {
@@ -364,5 +364,5 @@ index 1cb533ee0..c3c6b7815 100644
    </Page.content>
    <Page.footer>
 -- 
-2.25.1
+2.26.2
 

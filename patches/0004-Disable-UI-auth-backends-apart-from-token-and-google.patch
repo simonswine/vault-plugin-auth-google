@@ -1,4 +1,4 @@
-From e8090c2d699448e008f91559ff7f52b884de956b Mon Sep 17 00:00:00 2001
+From 8811f5d038442656a04b23d6746bc1bd6d3cdc54 Mon Sep 17 00:00:00 2001
 From: Christian Simon <simon@swine.de>
 Date: Thu, 18 Oct 2018 16:09:21 +0100
 Subject: [PATCH 4/4] Disable UI auth backends apart from token and google
@@ -21,5 +21,5 @@ index 12387194f..8ea0b8a4a 100644
  
  export default buildHelper(supportedAuthBackends);
 -- 
-2.25.1
+2.26.2
 
