@@ -1,7 +1,7 @@
 From 9fa614e1dc8acf31007532bcadc099fa7c02eaec Mon Sep 17 00:00:00 2001
 From: Christian Simon <simon@swine.de>
 Date: Thu, 18 Oct 2018 16:06:05 +0100
-Subject: [PATCH 3/4] Implement google oauth2 in the UI
+Subject: [PATCH 3/5] Implement google oauth2 in the UI
 
 This allows a browser only login into Vault using Google's credential
 backends.

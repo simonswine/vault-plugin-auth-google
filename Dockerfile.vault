@@ -48,10 +48,11 @@ RUN git checkout go.mod helper/builtinplugins/registry.go
 # built in plugin into vault
 RUN git am /tmp/patches/0001-Integrate-Google-G-Suite-credentials-plugin.patch
 RUN git am /tmp/patches/0002-Integrate-GPG-logical-plugin.patch
+RUN git am /tmp/patches/0005-Revert-Make-sure-if-a-user-gets-removed-from-all-gro.patch
 
 # rebuilt vault
 RUN \
-  sed -i "s/VersionPrerelease =.*/VersionPrerelease = \"simonswine1\"/g" sdk/version/version_base.go && \
+  sed -i "s/VersionPrerelease =.*/VersionPrerelease = \"simonswine2\"/g" sdk/version/version_base.go && \
   make bin XC_OSARCH=linux/amd64
 
 FROM alpine:3.11
